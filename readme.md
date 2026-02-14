@@ -52,7 +52,7 @@ Create a .env file in the root directory:
 
 ```
 PORT=8000
-CORS_ORIGIN=http://localhost:5173
+CORS_ORIGIN=http://localhost:8000
 ```
 
 ## ▶️ Run Locally
