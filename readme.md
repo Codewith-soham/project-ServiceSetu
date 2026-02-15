@@ -20,10 +20,24 @@
 - Standard API response format implemented
 - Async controller handling using asyncHandler
 
-## 🛠 Tech Stack (Current)
+## � Database Integration
+
+- MongoDB connection established using Mongoose
+- Database connection function implemented in src/db/connection.js
+- Server waits for successful DB connection before starting
+
+## 🔹 Security & Authentication
+
+- JWT (jsonwebtoken) installed for token-based authentication
+- BCryptjs installed for secure password hashing
+
+## �🛠 Tech Stack (Current)
 
 - Node.js
 - Express.js
+- MongoDB & Mongoose
+- JWT Authentication
+- BCryptjs (Password Hashing)
 - CORS
 - Cookie-Parser
 - Dotenv
@@ -53,6 +67,7 @@ Create a .env file in the root directory:
 ```
 PORT=8000
 CORS_ORIGIN=http://localhost:8000
+MONGO_URL=mongodb+srv://username:password@cluster.mongodb.net/serviceSetu
 ```
 
 ## ▶️ Run Locally
@@ -70,11 +85,11 @@ npm run dev
 
 ## 📌 Upcoming Implementation
 
-- MongoDB Integration
-- User Model
-- JWT Authentication
-- Protected Routes
+- User Model & Schema
+- Authentication Routes (Register/Login)
+- Protected Routes Middleware
 - Service APIs
+- Error Handling Middleware
 
 ## 👨‍💻 Author
 
