@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
-import { useReducer } from 'react';
+import jwt from 'jsonwebtokens';
 
 const userSchema = new mongoose.Schema({
     name : {
