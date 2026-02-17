@@ -1,14 +1,19 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtokens';
+import jwt from 'jsonwebtoken'
+
 
 const userSchema = new mongoose.Schema({
-    name : {
+    username : {
         type: String,
         required: true,
         lowercase: true,
         trim: true,
         index: true
+    },
+    fullname: {
+        type: String,
+        required: true
     },
     email: {
         type: String,
@@ -48,6 +53,7 @@ userSchema.pre('save', async function(next) {
     next();  //move to next middleware
 })
 
+//check check Password
 userSchema.methods.checkPassword = async function (password){
     return await bcrypt.compare(password, this.password)
 }
@@ -57,9 +63,7 @@ userSchema.methods.generateAccessToken = function (){
     return jwt.sign(                            //creates payload -> data you want to send inside the token
         {
             id: this._id,
-            email: this.email,
-            username: this.username,
-            fullname: this.fullname
+            role: this.role
         },
         process.env.ACCESS_TOKEN_SECRET,
         {
@@ -69,7 +73,7 @@ userSchema.methods.generateAccessToken = function (){
 }
 
 //REFRESH TOKEN 
-userSchema.methods.generateRefreshToken - function (){
+userSchema.methods.generateRefreshToken = function (){
     return jwt.sign (
         {
             _id: this._id,
