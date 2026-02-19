@@ -21,9 +21,17 @@ app.use(cookieParser())  //parses cookies sent by the client required to read jw
 
 //basic healthcheck route 
 import healthCheckRouter from "./routes/healthCheck.route.js"
-import userRouter from "./routes/user.route.js"
+import  authRouter from "./routes/auth.route.js";
+import  providerRouter from "./routes/provider.route.js";
 
-app.use("/api/v1/users", userRouter)
+// Auth routes
+app.use("/api/v1/auth", authRouter);
+
+// Provider routes (user upgrades)
+app.use("/api/v1/providers", providerRouter);
+
+
+
 app.use("/api/v1/healthCheck", healthCheckRouter)
 
 

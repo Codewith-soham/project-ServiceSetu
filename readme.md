@@ -37,6 +37,13 @@
 - User model with roles, phone, address, and refresh token
 - Register and login routes added under /api/v1/users
 - Auth middleware added for protected routes
+- ServiceProvider model created with approval system
+- Password hashing and JWT token generation implemented
+
+## 🔹 Models Implemented
+
+- **User Model**: Standard users with roles (user/provider/admin)
+- **ServiceProvider Model**: Service providers with approval status, service types, pricing, and availability tracking
 
 ## �🛠 Tech Stack (Current)
 
@@ -56,14 +63,28 @@ backend/
 │
 ├── src/
 │   ├── controllers/
+│   │   ├── healthcheck.controller.js
+│   │   └── user.controller.js
 │   ├── middlewares/
+│   │   └── auth.middleware.js
 │   ├── models/
+│   │   ├── user.model.js
+│   │   └── serviceProvider.model.js
 │   ├── routes/
+│   │   ├── healthCheck.route.js
+│   │   ├── user.route.js
+│   │   └── auth.route.js
 │   ├── utils/
+│   │   ├── ApiError.js
+│   │   ├── ApiResponse.js
+│   │   └── asyncHandler.js
+│   ├── db/
+│   │   └── connection.js
 │   ├── public/
 │   └── app.js
 │
 ├── server.js
+├── package.json
 └── README.md
 ```
 
@@ -98,10 +119,59 @@ npm run dev
 - POST /api/v1/users/register
 - POST /api/v1/users/login
 
-## 📌 Upcoming Implementation
+## � API Endpoints by Role
 
-- Service APIs
+### 🛡️ Admin-Only Routes
+
+- **Create Provider/Helper**
+  - POST /api/v1/admin/providers
+  
+- **Set Price for Provider**
+  - PUT /api/v1/admin/providers/:id/price
+  
+- **Approve/Reject Provider**
+  - PATCH /api/v1/admin/providers/:id/approve
+  - PATCH /api/v1/admin/providers/:id/reject
+  
+- **Delete Any User/Helper**
+  - DELETE /api/v1/admin/users/:id
+  - DELETE /api/v1/admin/providers/:id
+
+### 👤 Provider-Only Routes
+
+- **Accept/Reject Bookings**
+  - PATCH /api/v1/providers/bookings/:id/accept
+  - PATCH /api/v1/providers/bookings/:id/reject
+  
+- **Mark Job In-Progress or Completed**
+  - PATCH /api/v1/providers/bookings/:id/in-progress
+  - PATCH /api/v1/providers/bookings/:id/completed
+  
+- **Update Availability**
+  - PUT /api/v1/providers/availability
+  - GET /api/v1/providers/availability
+
+### 👥 User-Only Routes
+
+- **Create a Booking**
+  - POST /api/v1/users/bookings
+  
+- **Cancel Booking**
+  - DELETE /api/v1/users/bookings/:id
+  - PATCH /api/v1/users/bookings/:id/cancel
+  
+- **View Own Bookings**
+  - GET /api/v1/users/bookings
+
+## �📌 Upcoming Implementation
+
+- Admin Routes (Provider management, user deletion, pricing)
+- Provider Routes (Booking acceptance, job tracking, availability)
+- User Routes (Booking creation, cancellation, viewing)
+- Booking Model and Controller
+- Review/Rating System
 - Error Handling Middleware
+- Input Validation
 
 ## 👨‍💻 Author
 

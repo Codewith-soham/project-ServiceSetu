@@ -59,64 +59,50 @@ const registerUser = asyncHandler(async (req, res) => {
 
 //login user 
 const loginUser = asyncHandler(async (req, res) => {
-    const {email , phone , password} = req.body;
+    const { email, phone, password, role } = req.body;
 
-    //validation input
-     if (!password || (!email && !phone)) {
+    if (!password || (!email && !phone)) {
         throw new ApiError(400, "Email or phone and password are required");
     }
 
-    //finding user with email or phone
-    const user = await User.findOne(
-        {
-            $or: [{email}, {phone}]
-        }
-    );
+    const user = await User.findOne({
+        $or: [{ email }, { phone }]
+    });
 
-    if(!user) {
+    if (!user) {
         throw new ApiError(400, "User does not exist");
     }
 
-    //compare password
     const isPasswordCorrect = await user.checkPassword(password);
 
-    if(!isPasswordCorrect) {
+    if (!isPasswordCorrect) {
         throw new ApiError(400, "Invalid password");
     }
 
-    //generate tokens 
+    // Role validation
+    if (role && user.role !== role) {
+        throw new ApiError(403, `You are not registered as ${role}`);
+    }
+
     const accessToken = user.generateAccessToken();
     const refreshToken = user.generateRefreshToken();
 
-    //saving refresh token in database
     user.refreshToken = refreshToken;
-    await user.save({validateBeforeSave: false});
+    await user.save({ validateBeforeSave: false });
 
-    //cookie configuration
-    const options = {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict"
-    }
-    
-    return res
-        .status(200)
-        .cookie("refreshToken", refreshToken, options)
-        .cookie("accessToken", accessToken, options)
-        .json(new ApiResponse(200,
-            {
-                user: {
-                    id: user._id,
-                    email: user.email,
-                    fullname: user.fullname, 
-                },
-                accessToken
+    return res.status(200).json(
+        new ApiResponse(200, {
+            user: {
+                id: user._id,
+                email: user.email,
+                fullname: user.fullname,
+                role: user.role
             },
-            "User logged in successfully"
-        ))
+            accessToken
+        }, "Login successful")
+    );
+});
 
-
-})
 
 
 export {
