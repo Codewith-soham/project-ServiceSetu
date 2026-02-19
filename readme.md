@@ -30,6 +30,13 @@
 
 - JWT (jsonwebtoken) installed for token-based authentication
 - BCryptjs installed for secure password hashing
+- Access and refresh token flow implemented with HTTP-only cookies
+
+## 🔹 Users & Auth APIs
+
+- User model with roles, phone, address, and refresh token
+- Register and login routes added under /api/v1/users
+- Auth middleware added for protected routes
 
 ## �🛠 Tech Stack (Current)
 
@@ -68,6 +75,10 @@ Create a .env file in the root directory:
 PORT=8000
 CORS_ORIGIN=http://localhost:8000
 MONGO_URL=mongodb+srv://username:password@cluster.mongodb.net/serviceSetu
+ACCESS_TOKEN_SECRET=your_access_token_secret
+ACCESS_TOKEN_EXPIRY=15m
+REFRESH_TOKEN_SECRET=your_refresh_token_secret
+REFRESH_TOKEN_EXPIRY=7d
 ```
 
 ## ▶️ Run Locally
@@ -83,11 +94,12 @@ npm run dev
 **Health Check Endpoint:**
 - GET /api/v1/healthcheck
 
+**Auth Endpoints:**
+- POST /api/v1/users/register
+- POST /api/v1/users/login
+
 ## 📌 Upcoming Implementation
 
-- User Model & Schema
-- Authentication Routes (Register/Login)
-- Protected Routes Middleware
 - Service APIs
 - Error Handling Middleware
 
