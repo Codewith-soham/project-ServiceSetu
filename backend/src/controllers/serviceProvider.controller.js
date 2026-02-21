@@ -6,13 +6,20 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 
 const becomeProvider = asyncHandler(async (req, res) => {
 
-    const { serviceType, price } = req.body;
+    const { serviceType } = req.body;
 
-    if (!serviceType) {
+    // improved validation
+    if (!serviceType || serviceType.trim() === "") {
         throw new ApiError(400, "Service type is required");
     }
 
-    const userId = req.user.id;
+    const userId = req.user._id;
+
+    // extra safety check
+    const user = await User.findById(userId);
+    if (user.role === "provider") {
+        throw new ApiError(400, "You are already a provider");
+    }
 
     const existingProvider = await ServiceProvider.findOne({ user: userId });
 
@@ -22,12 +29,15 @@ const becomeProvider = asyncHandler(async (req, res) => {
 
     const provider = await ServiceProvider.create({
         user: userId,
-        serviceType,
-        price
+        serviceType: serviceType.trim(),
     });
 
     // update user role
-    await User.findByIdAndUpdate(userId, { role: "provider" });
+    await User.findByIdAndUpdate(
+        userId,
+        { role: "provider" },
+        { new: true }
+    );
 
     return res.status(201).json(
         new ApiResponse(201, provider, "You are now a provider")
