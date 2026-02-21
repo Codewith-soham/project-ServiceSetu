@@ -8,7 +8,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
     console.log("BODY: ", req.body);
 
-    const {fullname, email, username, password, phone, address} = req.body;
+    const {fullname, email, username, password, phone, address } = req.body;
 
     //validation input
    if ([fullname, email, username, password, phone, address]
@@ -36,7 +36,8 @@ const registerUser = asyncHandler(async (req, res) => {
             username: username.toLowerCase(),
             password,
             phone,
-            address
+            address,
+            role: "user" 
         })
 
         const createdUser = await User.findById(user._id).select("-password -refreshToken");
@@ -46,20 +47,19 @@ const registerUser = asyncHandler(async (req, res) => {
         }
 
         return res
-            .status(200)
-            .json(new ApiResponse(200, createdUser, "User created successfully"));
+            .status(201)
+            .json(new ApiResponse(201, createdUser, "User created successfully"));
     }
     catch(error) {
         console.error(error);
         
         throw new ApiError(500, "User creation failed");
     }
-
 })
 
 //login user 
 const loginUser = asyncHandler(async (req, res) => {
-    const { email, phone, password, role } = req.body;
+    const { email, phone, password } = req.body;
 
     if (!password || (!email && !phone)) {
         throw new ApiError(400, "Email or phone and password are required");
@@ -77,11 +77,6 @@ const loginUser = asyncHandler(async (req, res) => {
 
     if (!isPasswordCorrect) {
         throw new ApiError(400, "Invalid password");
-    }
-
-    // Role validation
-    if (role && user.role !== role) {
-        throw new ApiError(403, `You are not registered as ${role}`);
     }
 
     const accessToken = user.generateAccessToken();
