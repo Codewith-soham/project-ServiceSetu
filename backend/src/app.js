@@ -25,6 +25,7 @@ import  authRouter from "./routes/auth.route.js";
 import  providerRouter from "./routes/provider.route.js";
 import userRouter from "./routes/user.route.js";
 import getProvidersRouter from "./routes/getProviders.route.js";
+import bookingRouter from "./routes/booking.route.js";
 // Auth routes
 app.use("/api/v1/auth", authRouter);
 
@@ -32,6 +33,7 @@ app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/providers", providerRouter);
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/getProviders", getProvidersRouter);
+app.use("api/v1/bookings", bookingRouter)
 
 
 
