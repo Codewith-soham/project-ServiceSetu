@@ -130,20 +130,7 @@ backend/
    npm install
    ```
 
-3. **Configure environment variables**
-   - Create a `.env` file in the `backend` directory
-   - Add required environment variables:
-     ```
-     MONGO_URL=<your-mongodb-connection-string>
-     PORT=8000
-     CORS_ORIGIN=http://localhost:3000
-     ACCESS_TOKEN_SECRET=<your-secret-key>
-     ACCESS_TOKEN_EXPIRY=7d
-     REFRESH_TOKEN_SECRET=<your-refresh-secret>
-     REFRESH_TOKEN_EXPIRY=30d
-     ```
-
-4. **Start the server**
+3. **Start the server**
    ```bash
    npm run dev
    ```
