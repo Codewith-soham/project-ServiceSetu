@@ -1,60 +1,71 @@
-# ✅ Current Progress
+# ServiceSetu - Service Provider Platform
+
+A full-stack platform connecting users with local service providers including maids, electricians, plumbers, and care-takers.
+
+## ✅ Current Progress
 
 ## 🔹 Project Initialization
 
-- Node.js backend initialized
-- ES Modules enabled ("type": "module")
-- Structured backend architecture created
+- Node.js backend initialized with ES Modules
+- Structured MVC architecture implemented
+- Environment-based configuration with dotenv
 
 ## 🔹 Express Configuration
 
-- Express app configured inside src/app.js
-- CORS enabled for frontend-backend communication
-- JSON and URL-encoded middleware configured
-- Cookie parser added
+- Express app configured with middleware
+- CORS enabled for cross-origin requests
+- Request body limit set to 10mb (supports image uploads and rich profiles)
+- Cookie parser for JWT token management
 - Static file serving enabled
 
-## 🔹 Health Check Route
+## 🔹 Database Integration
 
-- Implemented /api/v1/healthcheck
-- Standard API response format implemented
-- Async controller handling using asyncHandler
-
-## � Database Integration
-
-- MongoDB connection established using Mongoose
-- Database connection function implemented in src/db/connection.js
-- Server waits for successful DB connection before starting
+- MongoDB connection with Mongoose ODM
+- Connection pooling and error handling
+- Server starts only after successful DB connection
 
 ## 🔹 Security & Authentication
 
-- JWT (jsonwebtoken) installed for token-based authentication
-- BCryptjs installed for secure password hashing
-- Access and refresh token flow implemented with HTTP-only cookies
+- JWT-based authentication with access tokens
+- Password hashing with bcryptjs (10 salt rounds)
+- Protected routes with auth middleware
+- Token verification and user session management
 
-## 🔹 Users & Auth APIs
+## 🔹 Implemented Features
 
-- User model with roles, phone, address, and refresh token
-- Register and login routes added under /api/v1/users
-- Auth middleware added for protected routes
-- ServiceProvider model created with approval system
-- Password hashing and JWT token generation implemented
+### Authentication System
+- User registration with role-based access
+- Login with email/phone and password
+- Access token generation and validation
+- Auth middleware for protected routes
+
+### User Management
+- User profile retrieval
+- Profile update functionality
+- Password change with validation
+- Role-based permissions (user/provider/admin)
+
+### Provider System
+- User-to-provider upgrade endpoint
+- Provider approval workflow
+- Service type categorization (maid, electrician, plumber, care-taker)
+- Provider listing with filters
+- Availability and rating tracking
 
 ## 🔹 Models Implemented
 
-- **User Model**: Standard users with roles (user/provider/admin)
-- **ServiceProvider Model**: Service providers with approval status, service types, pricing, and availability tracking
+- **User Model**: Authentication, roles, profile data, refresh tokens
+- **ServiceProvider Model**: Service types, pricing, approval status, ratings, availability
 
-## �🛠 Tech Stack (Current)
+## 🛠 Tech Stack
 
-- Node.js
-- Express.js
-- MongoDB & Mongoose
-- JWT Authentication
-- BCryptjs (Password Hashing)
-- CORS
-- Cookie-Parser
-- Dotenv
+- **Runtime:** Node.js
+- **Framework:** Express.js
+- **Database:** MongoDB with Mongoose ODM
+- **Authentication:** JWT (jsonwebtoken)
+- **Security:** bcryptjs for password hashing
+- **Middleware:** CORS, cookie-parser, express built-in middleware
+- **Environment:** dotenv for configuration management
 
 ## 📁 Project Structure
 
@@ -63,116 +74,134 @@ backend/
 │
 ├── src/
 │   ├── controllers/
-│   │   ├── healthcheck.controller.js
-│   │   └── user.controller.js
+│   │   ├── auth.controller.js          # User registration & login
+│   │   ├── user.controller.js          # Profile management
+│   │   ├── serviceProvider.controller.js  # Provider upgrade
+│   │   ├── getProvider.controller.js   # Provider listing
+│   │   └── healthcheck.controller.js   # Health check
 │   ├── middlewares/
-│   │   └── auth.middleware.js
+│   │   └── auth.middleware.js          # JWT verification
 │   ├── models/
-│   │   ├── user.model.js
-│   │   └── serviceProvider.model.js
+│   │   ├── user.model.js               # User schema
+│   │   └── serviceProvider.model.js    # Provider schema
 │   ├── routes/
-│   │   ├── healthCheck.route.js
-│   │   ├── user.route.js
-│   │   └── auth.route.js
+│   │   ├── auth.route.js               # Auth endpoints
+│   │   ├── user.route.js               # User endpoints
+│   │   ├── provider.route.js           # Provider upgrade
+│   │   ├── getProviders.route.js       # Provider listing
+│   │   └── healthCheck.route.js        # Health check
 │   ├── utils/
-│   │   ├── ApiError.js
-│   │   ├── ApiResponse.js
-│   │   └── asyncHandler.js
+│   │   ├── ApiError.js                 # Error handling class
+│   │   ├── ApiResponse.js              # Response formatter
+│   │   └── asyncHandler.js             # Async wrapper
 │   ├── db/
-│   │   └── connection.js
-│   ├── public/
-│   └── app.js
+│   │   └── connection.js               # MongoDB connection
+│   ├── public/                         # Static files
+│   └── app.js                          # Express app config
 │
-├── server.js
+├── server.js                           # Entry point
 ├── package.json
-└── README.md
-```
-
-## 🔧 Environment Variables
-
-Create a .env file in the root directory:
-
-```
-PORT=8000
-CORS_ORIGIN=http://localhost:8000
-MONGO_URL=mongodb+srv://username:password@cluster.mongodb.net/serviceSetu
-ACCESS_TOKEN_SECRET=your_access_token_secret
-ACCESS_TOKEN_EXPIRY=15m
-REFRESH_TOKEN_SECRET=your_refresh_token_secret
-REFRESH_TOKEN_EXPIRY=7d
+└── .env                                # Environment variables (not in git)
 ```
 
 ## ▶️ Run Locally
 
-```bash
-npm install
-npm run dev
-```
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd ServiceSetu
+   ```
 
-**Server runs at:**
-- http://localhost:8000
+2. **Install dependencies**
+   ```bash
+   cd backend
+   npm install
+   ```
 
-**Health Check Endpoint:**
-- GET /api/v1/healthcheck
+3. **Configure environment variables**
+   - Create a `.env` file in the backend directory
+   - Add required environment variables (contact developer for details)
 
-**Auth Endpoints:**
-- POST /api/v1/users/register
-- POST /api/v1/users/login
+4. **Start the server**
+   ```bash
+   npm run dev
+   ```
 
-## � API Endpoints by Role
+**Server runs at:** http://localhost:8000
 
-### 🛡️ Admin-Only Routes
+## 📡 API Endpoints
 
-- **Create Provider/Helper**
-  - POST /api/v1/admin/providers
+### Public Routes
+
+**Health Check**
+- `GET /api/v1/healthCheck` - Server health status
+- `GET /api/v1/healthCheck/test` - Test endpoint
+
+**Authentication**
+- `POST /api/v1/auth/register` - Register new user
+- `POST /api/v1/auth/login` - User login
+
+**Service Providers**
+- `GET /api/v1/getProviders/provider` - Get all approved providers
+- `GET /api/v1/getProviders/provider?serviceType=maid` - Filter by service type
+
+### Protected Routes (Requires Authentication)
+
+**User Profile**
+- `GET /api/v1/users/profile` - Get current user profile
+- `PUT /api/v1/users/profile/update` - Update user profile
+- `PUT /api/v1/users/change-password` - Change password
+
+**Provider Management**
+- `POST /api/v1/providers/become` - Upgrade user to provider
+
+## 🚀 Upcoming Features
+
+- **Admin Dashboard**
+  - Provider approval/rejection workflow
+  - User and provider management
+  - Pricing control
   
-- **Set Price for Provider**
-  - PUT /api/v1/admin/providers/:id/price
+- **Booking System**
+  - Booking creation and management
+  - Real-time availability checking
+  - Booking status tracking (pending, accepted, in-progress, completed, cancelled)
   
-- **Approve/Reject Provider**
-  - PATCH /api/v1/admin/providers/:id/approve
-  - PATCH /api/v1/admin/providers/:id/reject
+- **Provider Features**
+  - Booking acceptance/rejection
+  - Job status updates
+  - Availability management
+  - Earnings tracking
   
-- **Delete Any User/Helper**
-  - DELETE /api/v1/admin/users/:id
-  - DELETE /api/v1/admin/providers/:id
-
-### 👤 Provider-Only Routes
-
-- **Accept/Reject Bookings**
-  - PATCH /api/v1/providers/bookings/:id/accept
-  - PATCH /api/v1/providers/bookings/:id/reject
+- **Review & Rating System**
+  - User reviews for providers
+  - Rating calculations
+  - Review moderation
   
-- **Mark Job In-Progress or Completed**
-  - PATCH /api/v1/providers/bookings/:id/in-progress
-  - PATCH /api/v1/providers/bookings/:id/completed
-  
-- **Update Availability**
-  - PUT /api/v1/providers/availability
-  - GET /api/v1/providers/availability
+- **Additional Enhancements**
+  - Input validation middleware
+  - Advanced error handling
+  - File upload for avatars and documents
+  - Email notifications
+  - Search and filter optimization
 
-### 👥 User-Only Routes
+## 🔑 Key Features
 
-- **Create a Booking**
-  - POST /api/v1/users/bookings
-  
-- **Cancel Booking**
-  - DELETE /api/v1/users/bookings/:id
-  - PATCH /api/v1/users/bookings/:id/cancel
-  
-- **View Own Bookings**
-  - GET /api/v1/users/bookings
+✅ JWT-based authentication  
+✅ Role-based access control  
+✅ Password hashing with bcrypt  
+✅ RESTful API design  
+✅ Error handling with custom classes  
+✅ Async/await pattern throughout  
+✅ MongoDB with Mongoose ODM  
+✅ Protected routes with middleware  
+✅ Provider filtering by service type  
+✅ 10mb request body limit for rich content
 
-## �📌 Upcoming Implementation
+## 👨‍💻 Developer
 
-- Admin Routes (Provider management, user deletion, pricing)
-- Provider Routes (Booking acceptance, job tracking, availability)
-- User Routes (Booking creation, cancellation, viewing)
-- Booking Model and Controller
-- Review/Rating System
-- Error Handling Middleware
-- Input Validation
+**Soham Ghadge**
 
-## 👨‍💻 Author
+---
 
-Soham Ghadge
+For questions or contributions, please contact the developer.
