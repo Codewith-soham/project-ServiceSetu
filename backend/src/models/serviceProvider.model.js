@@ -1,3 +1,4 @@
+// Main: provider schema linked to a user.
 import mongoose from "mongoose";
 
 const serviceProviderSchema = new mongoose.Schema({

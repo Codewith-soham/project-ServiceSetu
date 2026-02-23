@@ -1,3 +1,4 @@
+// Main: health check routes.
 import { Router } from "express"
 import { healthCheck } from "../controllers/healthcheck.controller.js"
 

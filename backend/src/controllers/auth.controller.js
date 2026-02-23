@@ -1,3 +1,4 @@
+// Main: auth registration and login handlers.
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { ApiError } from '../utils/ApiError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
@@ -85,17 +86,26 @@ const loginUser = asyncHandler(async (req, res) => {
     user.refreshToken = refreshToken;
     await user.save({ validateBeforeSave: false });
 
-    return res.status(200).json(
-        new ApiResponse(200, {
-            user: {
-                id: user._id,
-                email: user.email,
-                fullname: user.fullname,
-                role: user.role
-            },
-            accessToken
-        }, "Login successful")
-    );
+    const cookieOptions = {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production"
+    };
+
+    return res
+        .status(200)
+        .cookie("accessToken", accessToken, cookieOptions)
+        .json(
+            new ApiResponse(200, {
+                user: {
+                    id: user._id,
+                    email: user.email,
+                    fullname: user.fullname,
+                    role: user.role
+                },
+                accessToken
+            }, "Login successful")
+        );
 });
 
 

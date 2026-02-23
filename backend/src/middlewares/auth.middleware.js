@@ -1,31 +1,41 @@
+// Main: JWT verification and role-based access control.
 import jwt from 'jsonwebtoken';
 import { ApiError } from '../utils/ApiError.js';
-import { User } from '../models/user.model.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
 export const verifyToken = asyncHandler(async (req, res, next) => {
 
-    //extract token from cookie
-    const token = req.cookies?.accessToken;
+    const bearerToken = req.headers?.authorization?.startsWith("Bearer ")
+        ? req.headers.authorization.split(" ")[1]
+        : null;
+    const token = req.cookies?.accessToken || bearerToken;
 
-    if(!token){
+    if (!token) {
         throw new ApiError(401, "Unauthorized: No token provided");
     }
 
-    //verify token
-     try {
-       const decodedToken =  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET)
-       const user = await User.findById(decodedToken?.id).select("-password -refreshToken")
+    try {
+        const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
 
-       if(!user){
-        throw new ApiError(401, "Unauthorised")
-       }
+        req.user = {
+            _id: decodedToken?.id,
+            role: decodedToken?.role
+        };
 
-       req.user = user 
-
-       //transfer the flow control
-       next()
+        next();
     } catch (error) {
-        throw new ApiError(401, error?.message || "Invalid access token")
+        throw new ApiError(401, error?.message || "Invalid access token");
     }
-})
+});
+
+export const authorizeRoles = (...roles) => (req, res, next) => {
+    if (!req.user?.role) {
+        return next(new ApiError(401, "Unauthorized"));
+    }
+
+    if (!roles.includes(req.user.role)) {
+        return next(new ApiError(403, "Forbidden: Insufficient permissions"));
+    }
+
+    return next();
+};

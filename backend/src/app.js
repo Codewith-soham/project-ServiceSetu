@@ -1,3 +1,4 @@
+// Main: Express app wiring (middleware + routes).
 import express from "express"
 import cors from "cors"
 import cookieParser from "cookie-parser"
@@ -8,7 +9,8 @@ const app = express()
 app.use(cors
     (
         {
-            origin: process.env.CORS_ORIGIN || "http://localhost:8000"
+            origin: process.env.CORS_ORIGIN || "http://localhost:8000",
+            credentials: true
         }
     )
 )

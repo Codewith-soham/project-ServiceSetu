@@ -1,3 +1,4 @@
+// Main: consistent error shape for API responses.
 class ApiError extends Error{    //uses error class 
     constructor(statusCode, 
         message = "Something went wrong" , 

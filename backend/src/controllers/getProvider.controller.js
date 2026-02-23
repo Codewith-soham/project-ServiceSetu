@@ -1,3 +1,4 @@
+// Main: public provider listing and filtering.
 import { ServiceProvider } from '../models/serviceProvider.model.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';

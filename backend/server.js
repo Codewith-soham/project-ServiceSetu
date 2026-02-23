@@ -14,6 +14,6 @@ connectDB()
             console.log(`Server is running on port ${port}`);
         })
     })
-    .catch(() => {
+    .catch((err) => {
         console.error("Failed to connect to the database", err);
     })

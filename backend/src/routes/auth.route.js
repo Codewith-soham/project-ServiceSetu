@@ -1,3 +1,4 @@
+// Main: auth routes (register, login).
 import express from "express";
 import { registerUser, loginUser } from "../controllers/auth.controller.js";
 

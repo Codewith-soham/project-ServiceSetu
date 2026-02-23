@@ -1,3 +1,4 @@
+// Main: MongoDB connection helper.
 import mongoose from "mongoose";
 
 const connectDB = async () => {
