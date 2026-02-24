@@ -48,7 +48,8 @@ backend/
 │   ├── utils/
 │   │   ├── ApiError.js                     # Error handling class
 │   │   ├── ApiResponse.js                  # Response formatter
-│   │   └── asyncHandler.js                 # Async wrapper
+│   │   ├── asyncHandler.js                 # Async wrapper
+│   │   └── geocode.util.js                 # Address to coordinates conversion
 │   ├── db/
 │   │   └── connection.js                   # MongoDB connection
 │   ├── public/                             # Static files directory
@@ -124,6 +125,13 @@ Booking Management
 - `GET /bookings/user-bookings` - User booking history
 - `GET /bookings/provider-bookings` - Provider booking queue
 - `PATCH /bookings/:bookingId/cancel` - User cancels a booking
+
+## Utilities & Features
+
+### Geocoding
+- Address-to-coordinates conversion via `getCoordinatesFromAddress()` utility
+- Enables location-based provider discovery and proximity filtering
+- Uses external geocoding API to convert provider addresses to latitude/longitude
 
 ## Upcoming Features
 
