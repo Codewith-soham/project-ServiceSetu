@@ -5,14 +5,15 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { Booking } from "../models/booking.model.js";
+import { getCoordinatesFromAddress } from "../utils/geocoding.js";
 
 const becomeProvider = asyncHandler(async (req, res) => {
 
-    const { serviceType } = req.body;
+    const { serviceType, address } = req.body;
 
     // improved validation
-    if (!serviceType || serviceType.trim() === "") {
-        throw new ApiError(400, "Service type is required");
+    if (!serviceType || serviceType.trim() === "" || !address || address.trim() === "") {
+        throw new ApiError(400, "Service type and address are required");
     }
 
     const userId = req.user._id;
@@ -29,17 +30,17 @@ const becomeProvider = asyncHandler(async (req, res) => {
         throw new ApiError(400, "You are already a provider");
     }
 
-    const provider = await ServiceProvider.create({
-        user: userId,
-        serviceType: serviceType.trim(),
-    });
+    const coords = await getCoordinatesFromAddress(address);
 
-    // update user role
-    await User.findByIdAndUpdate(
-        userId,
-        { role: "provider" },
-        { new: true }
-    );
+   const provider = await ServiceProvider.create({
+    user: userId,
+    serviceType: serviceType.trim(),
+    address: address.trim(),
+    location: {
+        type: "Point",
+        coordinates: [coords.longitude, coords.latitude]
+    }
+});
 
     return res.status(201).json(
         new ApiResponse(201, provider, "You are now a provider")

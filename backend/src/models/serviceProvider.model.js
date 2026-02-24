@@ -44,9 +44,23 @@ const serviceProviderSchema = new mongoose.Schema({
     totalReviews: {
         type: Number,
         default: 0
+    },
+    
+    location: {
+        type: {
+            type: String,
+            enum: ['Point'],
+            default: 'Point'
+        }
+    },
+     coordinates: {
+        type: [Number], // [longitude, latitude]
+        required: true
     }
 
 }, { timestamps: true });
+
+providerSchema.index({ location: '2dsphere' }); // for geospatial queries
 
 export const ServiceProvider = mongoose.model(
     "ServiceProvider",
