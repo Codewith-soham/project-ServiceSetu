@@ -36,9 +36,6 @@ app.use("/api/v1/providers", providerRouter);
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/getProviders", getProvidersRouter);
 app.use("/api/v1/bookings", bookingRouter)
-
-
-
 app.use("/api/v1/healthCheck", healthCheckRouter)
 
 
