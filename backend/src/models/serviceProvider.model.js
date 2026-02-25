@@ -15,12 +15,6 @@ const serviceProviderSchema = new mongoose.Schema({
         required: true,
         lowercase: true
     },
-
-    price: {
-        type: Number,
-        default: 0
-    },
-
     isApproved: {
         type: Boolean,
         default: false
@@ -53,14 +47,15 @@ const serviceProviderSchema = new mongoose.Schema({
             default: 'Point'
         }
     },
-     coordinates: {
+    
+    coordinates: {
         type: [Number], // [longitude, latitude]
         required: true
     }
 
 }, { timestamps: true });
 
-providerSchema.index({ location: '2dsphere' }); // for geospatial queries
+serviceProviderSchema.index({ location: '2dsphere' }); // for geospatial queries
 
 export const ServiceProvider = mongoose.model(
     "ServiceProvider",

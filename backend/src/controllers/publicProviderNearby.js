@@ -2,6 +2,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { ServiceProvider } from "../models/serviceProvider.model.js";
+import { Service } from "../models/service.model.js";
 
 const getNearbyProviders = asyncHandler(async (req, res) => {
     const { lat, lon , radius = 1000, serviceType } = req.query;
@@ -38,11 +39,18 @@ const getNearbyProviders = asyncHandler(async (req, res) => {
     }
 
     const providers = await ServiceProvider.find(filter)
-    .populate({
-        path: "user",
-        select: "fullname"
-    })
-    .select("serviceType price rating totalReviews location");
+        .populate({
+            path: "user",
+            select: "fullname"
+        })
+        .select("serviceType rating totalReviews location")
+        .lean();
+
+    const serviceTypes = [...new Set(providers.map((provider) => provider.serviceType))];
+    const services = await Service.find({ serviceType: { $in: serviceTypes } })
+        .select("serviceType price")
+        .lean();
+    const priceByType = new Map(services.map((service) => [service.serviceType, service.price]));
 
     const formattedProviders = providers.map((provider) => ({
         id: provider._id,
@@ -50,7 +58,8 @@ const getNearbyProviders = asyncHandler(async (req, res) => {
         serviceType: provider.serviceType,
         rating: provider.rating,
         totalReviews: provider.totalReviews,
-        location: provider.location
+        location: provider.location,
+        price: priceByType.get(provider.serviceType) ?? null
     }))
 
     res.status(200)

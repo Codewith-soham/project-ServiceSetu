@@ -24,6 +24,11 @@ const bookingSchema = new mongoose.Schema({
     default: ""
   },
 
+  price: {
+    type: Number,
+    required: true
+  }, 
+
   status: {
     type: String,
     enum: [

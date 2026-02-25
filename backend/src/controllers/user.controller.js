@@ -141,11 +141,12 @@ const confirmServiceCompletionByUser = asyncHandler(async (req, res) => {
     );
 });
 
+
 export {
     getCurrentUserProfile,
     updateUserProfile,
     changeUserPassword,
     getUserBookings,
     cancelBookingByUser,
-    confirmServiceCompletionByUser
+        confirmServiceCompletionByUser
 }

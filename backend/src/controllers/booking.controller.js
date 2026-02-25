@@ -4,6 +4,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ServiceProvider } from "../models/serviceProvider.model.js";
+import { Service } from "../models/service.model.js";
 
 const createBooking = asyncHandler(async (req, res) => {
     const { providerId, bookingDate, note } = req.body;
@@ -35,6 +36,11 @@ const createBooking = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Provider not available");
     }
 
+    const service = await Service.findOne({ serviceType: existingProvider.serviceType });
+    if (!service) {
+        throw new ApiError(404, "Service not found for provider type");
+    }
+
     const startOfDay = new Date(bookingDateValue);
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(bookingDateValue);
@@ -55,6 +61,7 @@ const createBooking = asyncHandler(async (req, res) => {
         provider: providerId,
         bookingDate: bookingDateValue,
         note: note || "",
+        price: service.price,
         status: "pending"
     });
 
