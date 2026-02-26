@@ -13,6 +13,7 @@ ServiceSetu is a Node.js backend that connects users with local service provider
 
 ## Tech Stack
 
+### Backend
 - Runtime: Node.js
 - Framework: Express.js
 - Database: MongoDB with Mongoose
@@ -20,55 +21,89 @@ ServiceSetu is a Node.js backend that connects users with local service provider
 - Security: bcryptjs password hashing
 - Middleware: CORS, cookie-parser, built-in Express parsers
 
+### Frontend
+- Framework: React 18
+- Build Tool: Vite
+- Styling: Tailwind CSS
+- Routing: React Router
+- HTTP Client: Axios
+
 ## Project Structure
 
 ```
-backend/
+ServiceSetu/
 │
-├── src/
-│   ├── controllers/
-│   │   ├── auth.controller.js              # User registration & login
-│   │   ├── user.controller.js              # Profile management
-│   │   ├── serviceProvider.controller.js   # Provider upgrade
-│   │   ├── getProvider.controller.js       # Provider listing & filtering
-│   │   ├── booking.controller.js           # Booking management
-│   │   ├── publicProviderNearby.js          # Provider nearby search
-│   │   ├── admin.controller.js              # Admin pricing
-│   │   ├── review.controller.js             # Reviews & ratings
-│   │   └── healthcheck.controller.js        # Health check
-│   ├── middlewares/
-│   │   └── auth.middleware.js              # JWT verification
-│   ├── models/
-│   │   ├── user.model.js                   # User schema with auth
-│   │   ├── serviceProvider.model.js        # Provider schema
-│   │   ├── service.model.js                # Service types & pricing
-│   │   ├── booking.model.js                # Booking schema
-│   │   └── review.model.js                 # Reviews & ratings
-│   ├── routes/
-│   │   ├── auth.route.js                   # Auth endpoints
-│   │   ├── user.route.js                   # User profile endpoints
-│   │   ├── provider.route.js               # Provider upgrade
-│   │   ├── getProviders.route.js           # Provider listing & filtering
-│   │   ├── booking.route.js                # Booking endpoints
-│   │   ├── admin.route.js                  # Admin pricing
-│   │   ├── review.route.js                 # Reviews
-│   │   └── healthCheck.route.js            # Health check
-│   ├── utils/
-│   │   ├── ApiError.js                     # Error handling class
-│   │   ├── ApiResponse.js                  # Response formatter
-│   │   ├── asyncHandler.js                 # Async wrapper
-│   │   └── geocode.util.js                 # Address to coordinates conversion
-│   ├── db/
-│   │   └── connection.js                   # MongoDB connection
-│   ├── public/                             # Static files directory
-│   └── app.js                              # Express app configuration
+├── backend/
+│   ├── src/
+│   │   ├── controllers/
+│   │   │   ├── auth.controller.js              # User registration & login
+│   │   │   ├── user.controller.js              # Profile management
+│   │   │   ├── serviceProvider.controller.js   # Provider upgrade
+│   │   │   ├── getProvider.controller.js       # Provider listing & filtering
+│   │   │   ├── booking.controller.js           # Booking management
+│   │   │   ├── publicProviderNearby.js          # Provider nearby search
+│   │   │   ├── admin.controller.js              # Admin pricing
+│   │   │   ├── review.controller.js             # Reviews & ratings
+│   │   │   └── healthcheck.controller.js        # Health check
+│   │   ├── middlewares/
+│   │   │   └── auth.middleware.js              # JWT verification
+│   │   ├── models/
+│   │   │   ├── user.model.js                   # User schema with auth
+│   │   │   ├── serviceProvider.model.js        # Provider schema
+│   │   │   ├── service.model.js                # Service types & pricing
+│   │   │   ├── booking.model.js                # Booking schema
+│   │   │   └── review.model.js                 # Reviews & ratings
+│   │   ├── routes/
+│   │   │   ├── auth.route.js                   # Auth endpoints
+│   │   │   ├── user.route.js                   # User profile endpoints
+│   │   │   ├── provider.route.js               # Provider upgrade
+│   │   │   ├── getProviders.route.js           # Provider listing & filtering
+│   │   │   ├── booking.route.js                # Booking endpoints
+│   │   │   ├── admin.route.js                  # Admin pricing
+│   │   │   ├── review.route.js                 # Reviews
+│   │   │   └── healthCheck.route.js            # Health check
+│   │   ├── utils/
+│   │   │   ├── ApiError.js                     # Error handling class
+│   │   │   ├── ApiResponse.js                  # Response formatter
+│   │   │   ├── asyncHandler.js                 # Async wrapper
+│   │   │   └── geocode.util.js                 # Address to coordinates conversion
+│   │   ├── db/
+│   │   │   └── connection.js                   # MongoDB connection
+│   │   ├── public/                             # Static files directory
+│   │   └── app.js                              # Express app configuration
+│   ├── server.js                               # Entry point
+│   ├── package.json                            # Dependencies & scripts
+│   └── .env                                    # Environment variables (not tracked)
 │
-├── server.js                           # Entry point
-├── package.json                        # Dependencies & scripts
-└── .env                                # Environment variables (not tracked)
+├── frontend/
+│   ├── public/
+│   │   └── vite.svg
+│   ├── src/
+│   │   ├── assets/
+│   │   │   ├── react.svg
+│   │   │   └── servicesetulogo.png            # ServiceSetu logo
+│   │   ├── components/                         # Reusable React components
+│   │   ├── pages/
+│   │   │   └── landingPage.jsx                # Landing page with header, hero & footer
+│   │   ├── services/
+│   │   │   ├── api.js                         # API utility functions
+│   │   │   ├── auth.api.js                    # Authentication API calls
+│   │   │   └── provider.api.js                # Provider API calls
+│   │   ├── App.jsx                            # Main App component
+│   │   ├── main.jsx                           # React entry point
+│   │   └── index.css                          # Global styles
+│   ├── index.html
+│   ├── vite.config.js                         # Vite configuration
+│   ├── eslint.config.js                       # ESLint configuration
+│   ├── package.json                           # Frontend dependencies & scripts
+│   └── README.md                              # Frontend documentation
+│
+└── readme.md                                   # This file
 ```
 
 ## Run Locally
+
+### Backend Setup
 
 1. Clone the repository
    ```bash
@@ -82,18 +117,60 @@ backend/
    npm install
    ```
 
-3. Start the server
+3. Create `.env` file in the backend folder with required environment variables
+
+4. Start the server
    ```bash
    npm run dev
    ```
 
-Server runs at: http://localhost:8000
+Backend server runs at: http://localhost:8000
+
+### Frontend Setup
+
+1. Navigate to frontend folder
+   ```bash
+   cd frontend
+   ```
+
+2. Install dependencies
+   ```bash
+   npm install
+   ```
+
+3. Start the development server
+   ```bash
+   npm run dev
+   ```
+
+Frontend server runs at: http://localhost:5173 (or as shown in terminal)
+
+### Build for Production
+
+**Backend:**
+```bash
+npm run build
+```
+
+**Frontend:**
+```bash
+npm run build
+```
 
 ## API Endpoints
 
 Base URL: `/api/v1`
 
 Auth tokens are accepted via `accessToken` cookie or `Authorization: Bearer <token>`.
+
+### Frontend Features
+
+**Landing Page** (`/`)
+- Responsive navigation header with ServiceSetu logo
+- Hero section highlighting service discovery
+- Call-to-action button for user signup
+- Footer with copyright information
+- Mobile-friendly design with Tailwind CSS
 
 ### Public Routes
 
@@ -149,12 +226,38 @@ Admin
 
 ## Upcoming Features
 
+### Backend
 - Admin dashboard for provider approval and analytics
 - Provider earnings and performance metrics
 - Booking notifications and reminders
 - Payment integration
 - Reviews and rating system
 - Advanced search and filtering
+
+### Frontend
+- User authentication pages (Login/Register)
+- Service provider discovery and filtering
+- Booking system UI
+- User profile management
+- Reviews and ratings display
+- Provider dashboard
+- Search and location-based filtering
+- Payment processing integration
+
+## Development Notes
+
+### Frontend Development
+- Uses Tailwind CSS for styling
+- React Router for page navigation
+- Axios for API calls
+- Vite for fast development and builds
+- ESLint for code quality
+
+### Environment Variables (Frontend)
+Configure in `frontend/.env` or `frontend/.env.local`:
+```
+VITE_API_BASE_URL=http://localhost:8000/api/v1
+```
 
 ## Developer
 
