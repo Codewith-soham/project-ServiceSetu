@@ -5,7 +5,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { Booking } from "../models/booking.model.js";
-import { getCoordinatesFromAddress } from "../utils/geocoding.js";
+import { getCoordinatesFromAddress } from "../utils/geocode.util.js";
 
 const becomeProvider = asyncHandler(async (req, res) => {
 
