@@ -89,21 +89,6 @@ backend/
 
 Server runs at: http://localhost:8000
 
-## Environment Variables
-
-Create a `backend/.env` file:
-
-```bash
-MONGO_URL=mongodb://localhost:27017/servicesetu
-PORT=8000
-CORS_ORIGIN=http://localhost:3000
-ACCESS_TOKEN_SECRET=your_access_token_secret
-REFRESH_TOKEN_SECRET=your_refresh_token_secret
-ACCESS_TOKEN_EXPIRY=1d
-REFRESH_TOKEN_EXPIRY=7d
-NODE_ENV=development
-```
-
 ## API Endpoints
 
 Base URL: `/api/v1`
