@@ -66,9 +66,15 @@ const loginUser = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Email or phone and password are required");
     }
 
+    const normalizedEmail = email ? email.toLowerCase().trim() : null;
+    const normalizedPhone = phone ? phone.trim() : null;
+
     const user = await User.findOne({
-        $or: [{ email }, { phone }]
-    });
+        $or: [
+            ...(normalizedEmail ? [{ email: normalizedEmail }] : []),
+            ...(normalizedPhone ? [{ phone: normalizedPhone }] : []),
+        ]
+    }).select("+password");
 
     if (!user) {
         throw new ApiError(400, "User does not exist");
