@@ -1,32 +1,55 @@
-import { Navigate, Route, Routes } from "react-router-dom";
-import ProtectedRoute from "./components/ProtectedRoute";
-import { useAuth } from "./context/useAuth";
-import LandingPage from "./pages/landingPage";
-import LoginPage from "./pages/LoginPage";
-import ProviderDashboard from "./pages/ProviderDashboard";
-import RegisterPage from "./pages/RegisterPage";
-import UserDashboard from "./pages/UserDashboard";
+import './index.css'
+import React from 'react';
+import { Routes, Route } from 'react-router-dom';
+import ProtectedRoute from './components/ProtectedRoute';
 
-const HomeRedirect = () => {
-  const { user } = useAuth();
-  if (!user) return <LandingPage />;
-  return <Navigate to={user.role === "provider" ? "/provider/dashboard" : "/dashboard"} replace />;
-};
+// Pages
+import Landing from './pages/Landing';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Home from './pages/Home';
+import UserDashboard from './pages/UserDashboard';
+import ProviderDashboard from './pages/ProviderDashboard';
 
-export default function App() {
+import { Toaster } from 'react-hot-toast';
+
+function App() {
   return (
-    <Routes>
-      <Route path="/" element={<HomeRedirect />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
+    <>
+      <Toaster position="top-center" />
+      <Routes>
+      <Route path="/" element={<Landing />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
 
-      <Route element={<ProtectedRoute allowedRoles={["user"]} />}>
-        <Route path="/dashboard" element={<UserDashboard />} />
-      </Route>
-
-      <Route element={<ProtectedRoute allowedRoles={["provider"]} />}>
-        <Route path="/provider/dashboard" element={<ProviderDashboard />} />
-      </Route>
+      {/* Protected Routes */}
+      <Route
+        path="/home"
+        element={
+          <ProtectedRoute>
+            <Home />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard/user"
+        element={
+          <ProtectedRoute requiredRole="user">
+            <UserDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard/provider"
+        element={
+          <ProtectedRoute requiredRole="provider">
+            <ProviderDashboard />
+          </ProtectedRoute>
+        }
+      />
     </Routes>
+    </>
   );
 }
+
+export default App;
