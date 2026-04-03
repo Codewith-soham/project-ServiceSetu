@@ -5,7 +5,7 @@ import { ServiceProvider } from "../models/serviceProvider.model.js";
 import { Service } from "../models/service.model.js";
 
 const getNearbyProviders = asyncHandler(async (req, res) => {
-    const { lat, lon , radius = 1000, serviceType } = req.query;
+    const { lat, lon , radius = 1000, serviceType, page = 1, limit = 10 } = req.query;
 
     if (!lat || !lon) {
         throw new ApiError(400, "Latitude and longitude are required");
@@ -14,6 +14,9 @@ const getNearbyProviders = asyncHandler(async (req, res) => {
     const parseLat = parseFloat(lat);
     const parseLon = parseFloat(lon);
     const parseRadius = parseFloat(radius);
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.max(1, parseInt(limit) || 10);
+    const skip = (pageNum - 1) * limitNum;
 
     if(isNaN(parseLat) || isNaN(parseLon)){
         throw new ApiError(400, "Invalid latitude, longitude");
@@ -30,13 +33,15 @@ const getNearbyProviders = asyncHandler(async (req, res) => {
                     coordinates: [parseLon, parseLat]
                 },
                 $maxDistance: parseRadius
-                }
             }
         }
+    };
     
     if(serviceType){
         filter.serviceType = serviceType.toLowerCase();
     }
+
+    const total = await ServiceProvider.countDocuments(filter);
 
     const providers = await ServiceProvider.find(filter)
         .populate({
@@ -44,6 +49,8 @@ const getNearbyProviders = asyncHandler(async (req, res) => {
             select: "fullname"
         })
         .select("serviceType rating totalReviews location")
+        .skip(skip)
+        .limit(limitNum)
         .lean();
 
     const serviceTypes = [...new Set(providers.map((provider) => provider.serviceType))];
@@ -60,14 +67,22 @@ const getNearbyProviders = asyncHandler(async (req, res) => {
         totalReviews: provider.totalReviews,
         location: provider.location,
         price: priceByType.get(provider.serviceType) ?? null
-    }))
+    }));
 
     res.status(200)
         .json(new ApiResponse(
             200,
-            formattedProviders,
+            {
+                data: formattedProviders,
+                pagination: {
+                    total,
+                    page: pageNum,
+                    limit: limitNum,
+                    totalPages: Math.ceil(total / limitNum)
+                }
+            },
             "Nearby providers retrieved successfully"
-        ))
+        ));
 })
 
 export { getNearbyProviders };

@@ -24,7 +24,9 @@ const setPrice = asyncHandler(async (req, res) => {
         throw new ApiError(404, "Service not found");
     }
 
-    res.status(200).json(new ApiResponse(true, updateService, `Price updated ${serviceType} successfully`));
+    res.status(200).json(
+        new ApiResponse(200, updateService, `Price updated ${serviceType} successfully`)
+    );
 })
 
 export {

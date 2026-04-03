@@ -114,9 +114,84 @@ const loginUser = asyncHandler(async (req, res) => {
         );
 });
 
+//logout user
+const logoutUser = asyncHandler(async (req, res) => {
+    const userId = req.user._id;
 
+    // Clear refreshToken in database
+    await User.findByIdAndUpdate(userId, { refreshToken: "" });
+
+    // Clear cookies
+    const cookieOptions = {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production"
+    };
+
+    return res
+        .status(200)
+        .clearCookie("accessToken", cookieOptions)
+        .clearCookie("refreshToken", cookieOptions)
+        .json(new ApiResponse(200, {}, "Logged out successfully"));
+});
+
+//refresh access token
+const refreshAccessToken = asyncHandler(async (req, res) => {
+    // Get refresh token from cookies or body
+    const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
+
+    if (!refreshToken) {
+        throw new ApiError(401, "Refresh token not provided");
+    }
+
+    // Verify refresh token
+    let decodedToken;
+    try {
+        decodedToken = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+    } catch (error) {
+        throw new ApiError(401, "Invalid or expired refresh token");
+    }
+
+    // Find user
+    const user = await User.findById(decodedToken.id);
+
+    if (!user) {
+        throw new ApiError(404, "User not found");
+    }
+
+    // Verify refresh token matches stored token
+    if (user.refreshToken !== refreshToken) {
+        throw new ApiError(401, "Refresh token mismatch");
+    }
+
+    // Generate new tokens
+    const accessToken = user.generateAccessToken();
+    const newRefreshToken = user.generateRefreshToken();
+
+    // Update user with new refresh token
+    user.refreshToken = newRefreshToken;
+    await user.save({ validateBeforeSave: false });
+
+    // Set cookies
+    const cookieOptions = {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production"
+    };
+
+    return res
+        .status(200)
+        .cookie("accessToken", accessToken, cookieOptions)
+        .cookie("refreshToken", newRefreshToken, cookieOptions)
+        .json(new ApiResponse(200, {
+            accessToken,
+            refreshToken: newRefreshToken
+        }, "Access token refreshed successfully"));
+});
 
 export {
     registerUser,
-    loginUser
+    loginUser,
+    logoutUser,
+    refreshAccessToken
 }

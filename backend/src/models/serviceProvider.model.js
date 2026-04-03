@@ -30,6 +30,10 @@ const serviceProviderSchema = new mongoose.Schema({
         default: false
     },
 
+    address: {
+        type: String
+    },
+
     rating: {
         type: Number,
         default: 0
@@ -44,13 +48,13 @@ const serviceProviderSchema = new mongoose.Schema({
         type: {
             type: String,
             enum: ['Point'],
-            default: 'Point'
+            default: 'Point',
+            required: true
+        },
+        coordinates: {
+            type: [Number], // [longitude, latitude]
+            required: true
         }
-    },
-    
-    coordinates: {
-        type: [Number], // [longitude, latitude]
-        required: true
     }
 
 }, { timestamps: true });

@@ -5,6 +5,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ServiceProvider } from "../models/serviceProvider.model.js";
 import { Service } from "../models/service.model.js";
+import { sendNotification, NOTIFICATION_EVENTS } from "../socket/notification.js";
 
 const createBooking = asyncHandler(async (req, res) => {
     const { providerId, bookingDate, note } = req.body;
@@ -70,4 +71,47 @@ const createBooking = asyncHandler(async (req, res) => {
     );
 });
 
-export { createBooking };
+const markServiceCompletedByProvider = asyncHandler(async (req, res) => {
+    const { bookingId } = req.params;
+
+    if (!bookingId) {
+        throw new ApiError(400, "Booking id is required");
+    }
+
+    const provider = await ServiceProvider.findOne({ user: req.user._id });
+
+    if (!provider) {
+        throw new ApiError(403, "Only providers can complete bookings");
+    }
+
+    const booking = await Booking.findById(bookingId);
+
+    if (!booking) {
+        throw new ApiError(404, "Booking not found");
+    }
+
+    if (booking.provider.toString() !== provider._id.toString()) {
+        throw new ApiError(403, "You are not authorized to complete this booking");
+    }
+
+    if (booking.status !== "accepted") {
+        throw new ApiError(400, "Only accepted bookings can be marked as completed");
+    }
+
+    booking.status = "service_completed_by_provider";
+    booking.providerCompletedAt = new Date();
+
+    await booking.save();
+
+    sendNotification(
+        booking.user,
+        "Service marked as completed",
+        NOTIFICATION_EVENTS.SERVICE_COMPLETED
+    );
+
+    return res.status(200).json(
+        new ApiResponse(200, booking, "Service marked as completed by provider")
+    );
+});
+
+export { createBooking, markServiceCompletedByProvider };

@@ -75,6 +75,13 @@ const changeUserPassword = asyncHandler(async (req,res) => {
 });
 
 const getUserBookings = asyncHandler(async (req, res) => {
+    const { page = 1, limit = 10 } = req.query;
+
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.max(1, parseInt(limit) || 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    const total = await Booking.countDocuments({ user: req.user._id });
 
     const bookings = await Booking.find({ user: req.user._id })
         .populate({
@@ -85,10 +92,20 @@ const getUserBookings = asyncHandler(async (req, res) => {
                 select: "fullname address"
             }
         })
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum);
 
     res.status(200).json(
-        new ApiResponse(200, bookings, "Bookings retrieved successfully")
+        new ApiResponse(200, {
+            data: bookings,
+            pagination: {
+                total,
+                page: pageNum,
+                limit: limitNum,
+                totalPages: Math.ceil(total / limitNum)
+            }
+        }, "Bookings retrieved successfully")
     );
 });
 

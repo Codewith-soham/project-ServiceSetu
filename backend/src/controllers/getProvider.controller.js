@@ -9,7 +9,11 @@ import { ApiResponse } from '../utils/ApiResponse.js';
 
 const getallServiceProvides = asyncHandler(async (req, res) => {
 
-    const { serviceType } = req.query;  //will take servicetype from user as query parameter to filter the providers by service type
+    const { serviceType, page = 1, limit = 10 } = req.query;  //will take servicetype from user as query parameter to filter the providers by service type
+
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.max(1, parseInt(limit) || 10);
+    const skip = (pageNum - 1) * limitNum;
 
     const filter = {
         isApproved: true,
@@ -21,6 +25,7 @@ const getallServiceProvides = asyncHandler(async (req, res) => {
         filter.serviceType = serviceType
     }
 
+    const total = await ServiceProvider.countDocuments(filter);
 
     const providers = await ServiceProvider.find(filter)
         .populate({
@@ -28,6 +33,8 @@ const getallServiceProvides = asyncHandler(async (req, res) => {
             select: 'fullname'
         })
         .select('serviceType rating totalReviews')
+        .skip(skip)
+        .limit(limitNum)
         .lean(); // optional but recommended will get plain JavaScript objects instead of Mongoose documents faster
 
     const serviceTypes = [...new Set(providers.map((provider) => provider.serviceType))];
@@ -35,10 +42,6 @@ const getallServiceProvides = asyncHandler(async (req, res) => {
         .select('serviceType price')
         .lean();
     const priceByType = new Map(services.map((service) => [service.serviceType, service.price]));
-
-    if (providers.length === 0) {
-        throw new ApiError(404, "No service providers found");
-    }
 
     const formattedProviders = providers.map(provider => ({
         id: provider._id,
@@ -50,7 +53,15 @@ const getallServiceProvides = asyncHandler(async (req, res) => {
     }));
 
     res.status(200).json(
-        new ApiResponse(200, formattedProviders, "Service Providers fetched successfully")
+        new ApiResponse(200, {
+            data: formattedProviders,
+            pagination: {
+                total,
+                page: pageNum,
+                limit: limitNum,
+                totalPages: Math.ceil(total / limitNum)
+            }
+        }, "Service Providers fetched successfully")
     );
 });
 

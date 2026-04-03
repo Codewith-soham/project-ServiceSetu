@@ -39,3 +39,7 @@ export const authorizeRoles = (...roles) => (req, res, next) => {
 
     return next();
 };
+
+// Backward-compatible aliases used by some route modules.
+export const verifyJWT = verifyToken;
+export const requireRole = (...roles) => authorizeRoles(...roles);

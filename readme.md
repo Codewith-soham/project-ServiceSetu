@@ -1,264 +1,424 @@
-# ServiceSetu - Service Provider Platform
+# ServiceSetu - Backend Documentation
 
-ServiceSetu is a Node.js backend that connects users with local service providers such as maids, electricians, plumbers, and care-takers.
+A Node.js/Express REST API for discovering and booking local service providers (maids, electricians, plumbers, caretakers) with real-time location-based search.
 
-## Highlights
+## Quick Start
 
-- Express + MongoDB backend using ES Modules
-- JWT auth with cookie or `Authorization: Bearer <token>` support
-- Role-based access (user/provider/admin)
-- Booking workflow with provider/user completion flow
-- Provider discovery with geospatial search
-- Structured MVC layout for maintainability
+### Prerequisites
+- Node.js 16+
+- MongoDB 4.4+ (local or Atlas)
+- npm or yarn
 
-## Tech Stack
+### Installation
 
-### Backend
-- Runtime: Node.js
-- Framework: Express.js
-- Database: MongoDB with Mongoose
-- Auth: JWT (jsonwebtoken) with cookies
-- Security: bcryptjs password hashing
-- Middleware: CORS, cookie-parser, built-in Express parsers
+```bash
+cd backend
+npm install
+```
 
-### Frontend
-- Framework: React 18
-- Build Tool: Vite
-- Styling: Tailwind CSS
-- Routing: React Router
-- HTTP Client: Axios
+### Environment Setup
+
+Create a `.env` file in the `backend/` directory:
+
+```env
+MONGO_URL=mongodb://localhost:27017/servicetu
+PORT=8000
+CORS_ORIGIN=http://localhost:5173
+NODE_ENV=development
+
+ACCESS_TOKEN_SECRET=your_access_secret_key_here
+ACCESS_TOKEN_EXPIRY=1d
+REFRESH_TOKEN_SECRET=your_refresh_secret_key_here
+REFRESH_TOKEN_EXPIRY=7d
+```
+
+### Run Development Server
+
+```bash
+npm run dev
+```
+
+Server runs on `http://localhost:8000`
+
+Health check: `GET http://localhost:8000/api/v1/healthCheck`
+
+## API Endpoints Overview
+
+### Authentication (Public)
+- `POST /api/v1/auth/register` - Register new user
+- `POST /api/v1/auth/login` - Login with email/phone
+- `POST /api/v1/auth/logout` - Logout (requires auth)
+- `POST /api/v1/auth/refresh-token` - Refresh access token
+
+### User Profile (Protected)
+- `GET /api/v1/users/profile` - Get user profile
+- `PUT /api/v1/users/profile/update` - Update profile
+- `PUT /api/v1/users/change-password` - Change password
+
+### Provider Management
+- `POST /api/v1/providers/become` - Convert user to provider (protected)
+- `GET /api/v1/providers/nearby` - Find nearby providers (public)
+- `GET /api/v1/getProviders/provider` - List all providers (public)
+
+### Bookings
+- `POST /api/v1/bookings/create` - Create booking (user only)
+- `GET /api/v1/bookings/user-bookings` - User booking history (user only)
+- `GET /api/v1/bookings/provider-bookings` - Provider bookings (provider only)
+- `PATCH /api/v1/bookings/:bookingId/status` - Accept/reject (provider only)
+- `PATCH /api/v1/bookings/:bookingId/cancel` - Cancel booking (user only)
+- `PATCH /api/v1/bookings/:bookingId/confirm-completion` - Confirm done (user only)
+- `PATCH /api/v1/bookings/:bookingId/complete-by-provider` - Mark completed (provider only)
+
+### Reviews
+- `POST /api/v1/reviews` - Create review (user only)
+- `GET /api/v1/reviews/:providerId` - Get provider reviews (public)
+
+### Admin
+- `PUT /api/v1/admin/services/price` - Update service pricing (admin only)
+
+### Health Check
+- `GET /api/v1/healthCheck` - API status (public)
+
+## Database Schema
+
+### User
+```javascript
+{
+  username: String (unique, lowercase),
+  fullname: String,
+  email: String (unique),
+  phone: String,
+  address: String,
+  password: String (hashed),
+  role: String (user|provider|admin),
+  avatar: String,
+  refreshToken: String,
+  timestamps: true
+}
+```
+
+### ServiceProvider
+```javascript
+{
+  user: ObjectId (ref: User),
+  serviceType: String (maid|electrician|plumber|caretaker),
+  address: String,
+  location: GeoJSON Point (2dsphere indexed),
+  isApproved: Boolean (default: true),
+  isActive: Boolean (default: true),
+  isAvailable: Boolean (default: true),
+  rating: Number,
+  totalReviews: Number,
+  timestamps: true
+}
+```
+
+### Booking
+```javascript
+{
+  user: ObjectId (ref: User),
+  provider: ObjectId (ref: ServiceProvider),
+  bookingDate: Date,
+  price: Number,
+  status: String (pending|accepted|rejected_by_provider|cancelled_by_user|service_completed_by_provider|completed),
+  paymentStatus: String (pending|held|released|refunded),
+  note: String,
+  providerCompletedAt: Date,
+  completedAt: Date,
+  timestamps: true
+}
+```
+
+### Review
+```javascript
+{
+  user: ObjectId (ref: User),
+  provider: ObjectId (ref: ServiceProvider),
+  booking: ObjectId (ref: Booking),
+  rating: Number (1-5),
+  comment: String,
+  timestamps: true
+  // Indexes: unique(user, provider), unique(booking, user)[sparse]
+}
+```
+
+### Service
+```javascript
+{
+  serviceType: String (unique),
+  price: Number,
+  timestamps: true
+}
+```
+
+## Authentication
+
+### JWT Token Strategy
+
+1. **Access Token** (short-lived, default: 1d)
+   - Used for API request authorization
+   - Sent via Bearer header or httpOnly cookie
+   - Verified on every protected route
+
+2. **Refresh Token** (long-lived, default: 7d)
+   - Stored in database and httpOnly cookie
+   - Used to obtain new access token
+   - Rotated on each refresh
+
+### Protected Routes
+
+All routes under `/api/v1/auth/logout`, user booking endpoints, and provider-specific endpoints require:
+- Valid JWT accessToken in header: `Authorization: Bearer <token>`
+- OR valid httpOnly cookie: `accessToken=<token>`
+
+### Rate Limiting
+
+- **Auth routes** (`/api/v1/auth`): 10 requests per 15 minutes per IP
+- **Other API routes**: 100 requests per 15 minutes per IP
+- Health check: No limit
+
+## Key Features
+
+### Location-Based Search
+- Uses MongoDB 2dsphere geospatial index
+- Finds providers within specified radius
+- Query: `GET /api/v1/providers/nearby?lat=28.6139&lon=77.2090&radius=1000`
+- Distance in meters, default radius: 1000m
+
+### Pagination
+All list endpoints support pagination:
+- Query params: `page=1&limit=10` (defaults applied)
+- Response includes: `pagination: { total, page, limit, totalPages }`
+- Endpoints with pagination:
+  - `GET /api/v1/providers/nearby`
+  - `GET /api/v1/getProviders/provider`
+  - `GET /api/v1/bookings/user-bookings`
+  - `GET /api/v1/bookings/provider-bookings`
+  - `GET /api/v1/reviews/:providerId`
+
+### Review Constraint
+- Prevents duplicate reviews: unique(user, provider)
+- One review per booking: unique(booking, user) [sparse]
+- Auto-updates provider.rating on creation
+
+### Booking Workflow
+```
+1. User creates booking → status: "pending"
+2. Provider accepts/rejects → status: "accepted" OR "rejected_by_provider"
+3. Provider completes work → status: "service_completed_by_provider"
+4. User confirms completion → status: "completed"
+OR User cancels → status: "cancelled_by_user"
+```
+
+## Response Format
+
+### Success
+```json
+{
+  "statusCode": 200,
+  "data": { "...": "payload" },
+  "message": "Success message",
+  "success": true
+}
+```
+
+### Error
+```json
+{
+  "statusCode": 400,
+  "message": "Error description",
+  "success": false
+}
+```
+
+### Paginated Responses
+```json
+{
+  "statusCode": 200,
+  "data": {
+    "data": [...items],
+    "pagination": {
+      "total": 50,
+      "page": 1,
+      "limit": 10,
+      "totalPages": 5
+    }
+  },
+  "message": "Items retrieved",
+  "success": true
+}
+```
 
 ## Project Structure
 
 ```
-ServiceSetu/
-│
-├── backend/
-│   ├── src/
-│   │   ├── controllers/
-│   │   │   ├── auth.controller.js              # User registration & login
-│   │   │   ├── user.controller.js              # Profile management
-│   │   │   ├── serviceProvider.controller.js   # Provider upgrade
-│   │   │   ├── getProvider.controller.js       # Provider listing & filtering
-│   │   │   ├── booking.controller.js           # Booking management
-│   │   │   ├── publicProviderNearby.js          # Provider nearby search
-│   │   │   ├── admin.controller.js              # Admin pricing
-│   │   │   ├── review.controller.js             # Reviews & ratings
-│   │   │   └── healthcheck.controller.js        # Health check
-│   │   ├── middlewares/
-│   │   │   └── auth.middleware.js              # JWT verification
-│   │   ├── models/
-│   │   │   ├── user.model.js                   # User schema with auth
-│   │   │   ├── serviceProvider.model.js        # Provider schema
-│   │   │   ├── service.model.js                # Service types & pricing
-│   │   │   ├── booking.model.js                # Booking schema
-│   │   │   └── review.model.js                 # Reviews & ratings
-│   │   ├── routes/
-│   │   │   ├── auth.route.js                   # Auth endpoints
-│   │   │   ├── user.route.js                   # User profile endpoints
-│   │   │   ├── provider.route.js               # Provider upgrade
-│   │   │   ├── getProviders.route.js           # Provider listing & filtering
-│   │   │   ├── booking.route.js                # Booking endpoints
-│   │   │   ├── admin.route.js                  # Admin pricing
-│   │   │   ├── review.route.js                 # Reviews
-│   │   │   └── healthCheck.route.js            # Health check
-│   │   ├── utils/
-│   │   │   ├── ApiError.js                     # Error handling class
-│   │   │   ├── ApiResponse.js                  # Response formatter
-│   │   │   ├── asyncHandler.js                 # Async wrapper
-│   │   │   └── geocode.util.js                 # Address to coordinates conversion
-│   │   ├── db/
-│   │   │   └── connection.js                   # MongoDB connection
-│   │   ├── public/                             # Static files directory
-│   │   └── app.js                              # Express app configuration
-│   ├── server.js                               # Entry point
-│   ├── package.json                            # Dependencies & scripts
-│   └── .env                                    # Environment variables (not tracked)
-│
-├── frontend/
-│   ├── public/
-│   │   └── vite.svg
-│   ├── src/
-│   │   ├── assets/
-│   │   │   ├── react.svg
-│   │   │   └── servicesetulogo.png            # ServiceSetu logo
-│   │   ├── components/                         # Reusable React components
-│   │   ├── pages/
-│   │   │   └── landingPage.jsx                # Landing page with header, hero & footer
-│   │   ├── services/
-│   │   │   ├── api.js                         # API utility functions
-│   │   │   ├── auth.api.js                    # Authentication API calls
-│   │   │   └── provider.api.js                # Provider API calls
-│   │   ├── App.jsx                            # Main App component
-│   │   ├── main.jsx                           # React entry point
-│   │   └── index.css                          # Global styles
-│   ├── index.html
-│   ├── vite.config.js                         # Vite configuration
-│   ├── eslint.config.js                       # ESLint configuration
-│   ├── package.json                           # Frontend dependencies & scripts
-│   └── README.md                              # Frontend documentation
-│
-└── readme.md                                   # This file
+backend/
+├── src/
+│   ├── controllers/          # Business logic
+│   │   ├── auth.controller.js
+│   │   ├── user.controller.js
+│   │   ├── booking.controller.js
+│   │   ├── serviceProvider.controller.js
+│   │   ├── getProvider.controller.js
+│   │   ├── publicProviderNearby.js
+│   │   ├── review.controller.js
+│   │   ├── admin.controller.js
+│   │   └── healthcheck.controller.js
+│   ├── models/              # Mongoose schemas
+│   │   ├── user.model.js
+│   │   ├── booking.model.js
+│   │   ├── serviceProvider.model.js
+│   │   ├── review.model.js
+│   │   └── service.model.js
+│   ├── routes/              # Route definitions
+│   │   ├── auth.route.js
+│   │   ├── user.route.js
+│   │   ├── booking.route.js
+│   │   ├── provider.route.js
+│   │   ├── getProviders.route.js
+│   │   ├── review.route.js
+│   │   ├── admin.route.js
+│   │   └── healthCheck.route.js
+│   ├── middlewares/
+│   │   └── auth.middleware.js
+│   ├── utils/               # Helpers
+│   │   ├── ApiResponse.js
+│   │   ├── ApiError.js
+│   │   ├── asyncHandler.js
+│   │   └── geocode.util.js
+│   ├── db/
+│   │   └── connection.js
+│   └── app.js               # Express setup
+├── server.js                # Entry point
+├── package.json
+└── .env                     # Configuration (git ignored)
 ```
 
-## Run Locally
+## Technology Stack
 
-### Backend Setup
+- **Runtime**: Node.js with ES Modules
+- **Framework**: Express.js 5.x
+- **Database**: MongoDB + Mongoose 7.x
+- **Authentication**: JWT + bcryptjs + cookie-parser
+- **Security**: express-rate-limit
+- **Utilities**: dotenv, nodemon
+- **Geocoding**: Nominatim API (free, no key required)
 
-1. Clone the repository
-   ```bash
-   git clone <repository-url>
-   cd ServiceSetu
-   ```
+## Development
 
-2. Install dependencies
-   ```bash
-   cd backend
-   npm install
-   ```
+### Available Scripts
 
-3. Create `.env` file in the backend folder with required environment variables
-
-4. Start the server
-   ```bash
-   npm run dev
-   ```
-
-Backend server runs at: http://localhost:8000
-
-### Frontend Setup
-
-1. Navigate to frontend folder
-   ```bash
-   cd frontend
-   ```
-
-2. Install dependencies
-   ```bash
-   npm install
-   ```
-
-3. Start the development server
-   ```bash
-   npm run dev
-   ```
-
-Frontend server runs at: http://localhost:5173 (or as shown in terminal)
-
-### Build for Production
-
-**Backend:**
 ```bash
-npm run build
+npm run dev      # Start with nodemon (auto-reload)
+npm start        # Start production server
+npm test         # Run tests (if configured)
 ```
 
-**Frontend:**
-```bash
-npm run build
+### Code Style
+
+- ES6+ syntax
+- Async/await patterns
+- Centralized error handling via asyncHandler
+- Consistent ApiResponse formatting
+
+### Database Indexing
+
+Created indexes:
+- `user.username` (unique, lowercase)
+- `user.email` (unique)
+- `serviceProvider.user` (unique)
+- `review.user + review.provider` (unique compound)
+- `review.booking + review.user` (unique sparse)
+- `serviceProvider.location` (2dsphere for geospatial)
+
+## Deployment
+
+### Production Checklist
+
+- [ ] Generate strong random secrets for token keys (32+ chars)
+- [ ] Set `NODE_ENV=production`
+- [ ] Configure MongoDB connection string (Atlas or self-hosted)
+- [ ] Set `CORS_ORIGIN` to exact frontend domain
+- [ ] Enable HTTPS (nginx reverse proxy or AWS ALB)
+- [ ] Set secure cookies: `Secure; HttpOnly; SameSite=Strict`
+- [ ] Monitor rate limiting and adjust if needed
+- [ ] Set up error logging/monitoring (Sentry, LogRocket)
+- [ ] Configure automated backups for MongoDB
+- [ ] Update MONGO_URL with production database
+- [ ] Test all endpoints in staging environment
+
+### Example Production .env
+
+```env
+MONGO_URL=mongodb+srv://user:pass@cluster.mongodb.net/servicetu
+PORT=3000
+CORS_ORIGIN=https://servicetu.com
+NODE_ENV=production
+
+ACCESS_TOKEN_SECRET=abc123def456ghi789jkl012mno345pqr678stu
+ACCESS_TOKEN_EXPIRY=1d
+REFRESH_TOKEN_SECRET=xyz987uvw654tsr321qpo987lkj654ihg321fed
+REFRESH_TOKEN_EXPIRY=7d
 ```
 
-## API Endpoints
+## Troubleshooting
 
-Base URL: `/api/v1`
+### MongoDB Connection Failed
+- Verify `MONGO_URL` is correct
+- Check MongoDB service is running: `mongod`
+- For Atlas: Ensure IP whitelist includes your IP
 
-Auth tokens are accepted via `accessToken` cookie or `Authorization: Bearer <token>`.
+### Rate Limit Errors (429)
+- Auth routes: Wait 15 minutes before retry
+- Other routes: Distributed requests over time
+- Check IP - each IP has separate limit bucket
 
-### Frontend Features
+### JWT Token Expired
+- Use `POST /api/v1/auth/refresh-token` to get new accessToken
+- Send refreshToken in request body or cookies
 
-**Landing Page** (`/`)
-- Responsive navigation header with ServiceSetu logo
-- Hero section highlighting service discovery
-- Call-to-action button for user signup
-- Footer with copyright information
-- Mobile-friendly design with Tailwind CSS
+### Provider Geospatial Query Returns Empty
+- Verify `location` is valid GeoJSON Point: `{ type: "Point", coordinates: [lon, lat] }`
+- Check latitude/longitude values (lon: -180 to 180, lat: -90 to 90)
+- Ensure 2dsphere index exists on serviceProvider.location
 
-### Public Routes
+## Security Recommendations
 
-Health Check
-- `GET /healthCheck` - Server health status
-- `GET /healthCheck/test` - Test endpoint
+- [ ] Add helmet.js for HTTP security headers
+- [ ] Implement input sanitization (xss library)
+- [ ] Add request validation schemas (Joi, Zod)
+- [ ] Enable CORS preflight for complex requests
+- [ ] Use environment-specific secrets
+- [ ] Implement API versioning strategy
+- [ ] Add comprehensive error logging
+- [ ] Use HTTPS everywhere in production
+- [ ] Implement request signing for critical endpoints
+- [ ] Regular dependency updates: `npm audit fix`
 
-Authentication
-- `POST /auth/register` - Register new user
-- `POST /auth/login` - User login
+## Next Steps
 
-Service Providers
-- `GET /getProviders/provider` - Get all approved providers
-- `GET /getProviders/provider?serviceType=maid` - Filter by service type
+### High Priority Backend Work
+1. Payment integration (Stripe/Razorpay)
+2. Provider approval workflow (admin queue)
+3. Booking refund logic
+4. Service catalog CRUD (dynamic types)
 
-Nearby Providers
-- `GET /providers/nearby?lat=18.52&lon=73.85&radius=2000&serviceType=maid` - Providers within radius (meters)
+### Monitoring & Maintenance
+- Set up error tracking (Sentry)
+- Monitor rate limit patterns
+- Track API response times
+- Set up uptime monitoring
+- Regular security audits
 
-Reviews
-- `GET /reviews/:providerId` - Get provider reviews
+## Support & Issues
 
-### Protected Routes (Requires Authentication)
+For backend issues:
+- Check MongoDB connection
+- Verify JWT secrets are set
+- Inspect rate limiting status
+- Review console logs for stack traces
+- Check CORS configuration if frontend can't connect
 
-User Profile
-- `GET /users/profile` - Get current user profile
-- `PUT /users/profile/update` - Update user profile
-- `PUT /users/change-password` - Change password
+## License
 
-Provider Management
-- `POST /providers/become` - Upgrade user to provider
-
-Booking Management
-- `POST /bookings/create` - Create a booking
-- `PATCH /bookings/:bookingId/status` - Provider updates booking status
-- `GET /bookings/user-bookings` - User booking history
-- `GET /bookings/provider-bookings` - Provider booking queue
-- `PATCH /bookings/:bookingId/cancel` - User cancels a booking
-- `PATCH /bookings/:bookingId/confirm-completion` - User confirms completion
-- `PATCH /bookings/:bookingId/complete-by-provider` - Provider marks completed
-
-Reviews
-- `POST /reviews` - Add a review (user)
-
-Admin
-- `PUT /admin/services/price` - Update service pricing (admin)
-
-## Utilities & Features
-
-### Geocoding
-- Address-to-coordinates conversion via `getCoordinatesFromAddress()` utility
-- Enables location-based provider discovery and proximity filtering
-- Uses external geocoding API to convert provider addresses to latitude/longitude
-
-## Upcoming Features
-
-### Backend
-- Admin dashboard for provider approval and analytics
-- Provider earnings and performance metrics
-- Booking notifications and reminders
-- Payment integration
-- Reviews and rating system
-- Advanced search and filtering
-
-### Frontend
-- User authentication pages (Login/Register)
-- Service provider discovery and filtering
-- Booking system UI
-- User profile management
-- Reviews and ratings display
-- Provider dashboard
-- Search and location-based filtering
-- Payment processing integration
-
-## Development Notes
-
-### Frontend Development
-- Uses Tailwind CSS for styling
-- React Router for page navigation
-- Axios for API calls
-- Vite for fast development and builds
-- ESLint for code quality
-
-### Environment Variables (Frontend)
-Configure in `frontend/.env` or `frontend/.env.local`:
-```
-VITE_API_BASE_URL=http://localhost:8000/api/v1
-```
-
-## Developer
-
-Soham Ghadge
+ServiceSetu Backend © 2026

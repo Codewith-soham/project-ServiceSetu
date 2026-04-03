@@ -1,25 +1,25 @@
 import axios from "axios";
 
 export const getCoordinatesFromAddress = async (address) => {
-    const respponse = await axios.get(
-        "hhttps://maps.googleapis.com/maps/api/geocode/json",
+    const response = await axios.get(
+        "https://nominatim.openstreetmap.org/search",
         {
             params: {
                 q: address,
-                format: "json",
+                format: "jsonv2",
                 limit: 1
             },
-            Headers: {
+            headers: {
                 "user-agent": "ServiceSetuApp"
             }
         }
-    )
+    );
 
-    if(!Response.data.length){
+    if (!response.data.length) {
         throw new Error("Unable to geocode the provided address.")
     }
 
-    const { lat, lon } = Response.data[0];
+    const { lat, lon } = response.data[0];
 
     return {
         latitude: parseFloat(lat),
