@@ -1,0 +1,32 @@
+# Node dependencies
+**/node_modules/
+
+# Environment files
+**/.env
+**/.env.*
+!**/.env.example
+
+# Logs
+**/*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build artifacts
+**/dist/
+**/build/
+**/coverage/
+**/.cache/
+**/.tmp/
+**/tmp/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Local reports and generated docs
+AUDIT_REPORT.txt
+PROJECT_HEALTH_REPORT.txt
