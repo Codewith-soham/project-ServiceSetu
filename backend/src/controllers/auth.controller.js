@@ -3,11 +3,19 @@ import { ApiResponse } from '../utils/ApiResponse.js';
 import { ApiError } from '../utils/ApiError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { User } from '../models/user.model.js';
+import jwt from 'jsonwebtoken';
 
 //registering a user
 const registerUser = asyncHandler(async (req, res) => {
 
-    console.log("BODY: ", req.body);
+    const traceId = req.headers['x-trace-id'] || null;
+    console.log("[auth.register]", {
+        traceId,
+        email: req.body?.email,
+        username: req.body?.username,
+        phone: req.body?.phone,
+        address: req.body?.address,
+    });
 
     const {fullname, email, username, password, phone, address } = req.body;
 
@@ -47,12 +55,37 @@ const registerUser = asyncHandler(async (req, res) => {
             throw new ApiError(500, "User creation failed");
         }
 
+        const accessToken = user.generateAccessToken();
+        const refreshToken = user.generateRefreshToken();
+
+        user.refreshToken = refreshToken;
+        await user.save({ validateBeforeSave: false });
+
+        const cookieOptions = {
+            httpOnly: true,
+            sameSite: "lax",
+            secure: process.env.NODE_ENV === "production"
+        };
+
         return res
             .status(201)
-            .json(new ApiResponse(201, createdUser, "User created successfully"));
+            .cookie("accessToken", accessToken, cookieOptions)
+            .cookie("refreshToken", refreshToken, cookieOptions)
+            .json(new ApiResponse(201, {
+                user: {
+                    id: createdUser._id,
+                    email: createdUser.email,
+                    fullname: createdUser.fullname,
+                    role: createdUser.role
+                },
+                accessToken
+            }, "User created and logged in successfully"));
     }
     catch(error) {
-        console.error(error);
+        console.error("[auth.register:error]", {
+            traceId,
+            message: error?.message,
+        });
         
         throw new ApiError(500, "User creation failed");
     }

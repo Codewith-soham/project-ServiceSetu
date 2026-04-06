@@ -7,14 +7,32 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { Booking } from "../models/booking.model.js";
 import { getCoordinatesFromAddress } from "../utils/geocode.util.js";
 import mongoose from "mongoose";
+import { deleteCloudinaryAsset, uploadBufferToCloudinary } from "../utils/cloudinary.util.js";
 
 const becomeProvider = asyncHandler(async (req, res) => {
+    const traceId = req.headers['x-trace-id'] || null;
+    console.log("[provider.become:start]", {
+        traceId,
+        userId: req.user?._id?.toString?.() || null,
+        serviceType: req.body?.serviceType,
+        address: req.body?.address,
+        pricing: req.body?.pricing,
+        isAvailable: req.body?.isAvailable,
+        hasImage: !!req.file,
+    });
+    
 
-    const { serviceType, address } = req.body;
+    const { serviceType, address, pricing, isAvailable } = req.body;
+    const providerImageFile = req.file;
+    let uploadedPublicId = "";
 
     // improved validation
     if (!serviceType || serviceType.trim() === "" || !address || address.trim() === "") {
         throw new ApiError(400, "Service type and address are required");
+    }
+
+    if (!providerImageFile) {
+        throw new ApiError(400, "Provider image is required");
     }
 
     const userId = req.user._id;
@@ -43,12 +61,29 @@ const becomeProvider = asyncHandler(async (req, res) => {
             throw new ApiError(400, "You are already a provider");
         }
 
+        const providerId = new mongoose.Types.ObjectId();
+        const uploadResult = await uploadBufferToCloudinary(providerImageFile.buffer, {
+            folder: `servicesetu/providers/${providerId}`,
+            public_id: "profile",
+            resource_type: "image",
+            overwrite: true
+        });
+        uploadedPublicId = uploadResult?.public_id || "";
+
+        const parsedPricing = Number(pricing);
+        const parsedIsAvailable = isAvailable === undefined
+            ? true
+            : String(isAvailable).toLowerCase() === "true";
+
         const [provider] = await ServiceProvider.create([{
+            _id: providerId,
             user: userId,
             serviceType: serviceType.trim(),
             address: address.trim(),
+            pricing: Number.isFinite(parsedPricing) ? parsedPricing : 0,
+            image: uploadResult?.secure_url || "",
             isApproved: true,
-            isAvailable: true,
+            isAvailable: parsedIsAvailable,
             isActive: true,
             location: {
                 type: "Point",
@@ -62,12 +97,37 @@ const becomeProvider = asyncHandler(async (req, res) => {
             { session }
         );
 
+        console.log("[provider.become:role-updated]", {
+            traceId,
+            userId: userId.toString(),
+            nextRole: "provider",
+        });
+
         await session.commitTransaction();
+        console.log("[provider.become:success]", {
+            traceId,
+            providerId: provider._id.toString(),
+            userId: userId.toString(),
+        });
         return res.status(201).json(
             new ApiResponse(201, provider, "You are now a provider")
         );
     } catch (err) {
         await session.abortTransaction();
+
+        console.error("[provider.become:error]", {
+            traceId,
+            message: err?.message,
+        });
+
+        if (uploadedPublicId) {
+            try {
+                await deleteCloudinaryAsset(uploadedPublicId);
+            } catch {
+                // Ignore Cloudinary cleanup failures after DB rollback.
+            }
+        }
+
         throw err;
     } finally {
         session.endSession();
