@@ -22,7 +22,7 @@ const getallServiceProvides = asyncHandler(async (req, res) => {
     }
 
     if(serviceType){
-        filter.serviceType = serviceType
+        filter.serviceType = String(serviceType).toLowerCase();
     }
 
     const total = await ServiceProvider.countDocuments(filter);
@@ -32,7 +32,7 @@ const getallServiceProvides = asyncHandler(async (req, res) => {
             path: 'user',
             select: 'fullname'
         })
-        .select('serviceType rating totalReviews')
+        .select('serviceType rating totalReviews image')
         .skip(skip)
         .limit(limitNum)
         .lean(); // optional but recommended will get plain JavaScript objects instead of Mongoose documents faster
@@ -45,10 +45,12 @@ const getallServiceProvides = asyncHandler(async (req, res) => {
 
     const formattedProviders = providers.map(provider => ({
         id: provider._id,
-        name: provider.user.fullname,
+        name: provider?.user?.fullname || 'Service Provider',
+        fullname: provider?.user?.fullname || 'Service Provider',
         serviceType: provider.serviceType,
         rating: provider.rating,
         totalReviews: provider.totalReviews,
+        image: provider.image || null,
         price: priceByType.get(provider.serviceType) ?? null
     }));
 

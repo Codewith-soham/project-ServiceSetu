@@ -10,6 +10,11 @@ import mongoose from "mongoose";
 import { deleteCloudinaryAsset, uploadBufferToCloudinary } from "../utils/cloudinary.util.js";
 
 const becomeProvider = asyncHandler(async (req, res) => {
+
+    console.log("BODY: ", req.body);
+    
+
+
     const traceId = req.headers['x-trace-id'] || null;
     console.log("[provider.become:start]", {
         traceId,

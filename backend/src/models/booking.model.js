@@ -24,6 +24,11 @@ const bookingSchema = new mongoose.Schema({
     default: ""
   },
 
+  address: {
+    type: String,
+    default: ""
+  },
+
   price: {
     type: Number,
     required: true
@@ -53,9 +58,65 @@ const bookingSchema = new mongoose.Schema({
 
   paymentStatus: {
     type: String,
-    enum: ["pending", "held", "released", "refunded"],
+    enum: ["pending", "paid", "held", "released", "refunded"],
     default: "pending"
-  }
+  },
+
+  platformFee: {
+  type: Number,
+  required: true,
+},
+
+providerAmount: {
+  type: Number,
+  required: true,
+},
+
+razorpayOrderId: {
+  type: String,
+},
+
+razorpayPaymentId: {
+  type: String,
+},
+
+razorpaySignature: {
+  type: String,
+},
+
+amountToCharge: {
+  type: Number,
+  default: 0,
+},
+
+razorpayFee: {
+  type: Number,
+  default: 0,
+},
+
+roundUpMargin: {
+  type: Number,
+  default: 0,
+},
+
+pricingVersion: {
+  type: String,
+  default: "v1-adaptive-roundup",
+},
+
+completionOtp: {
+  type: String,
+},
+
+otpExpiresAt: {
+  type: Date,
+},
+
+isOtpVerified: {
+  type: Boolean,
+  default: false,
+},
+
 }, { timestamps: true }); 
 
 export const Booking = mongoose.model("Booking", bookingSchema);

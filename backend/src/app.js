@@ -25,18 +25,20 @@ app.use(cookieParser())  //parses cookies sent by the client required to read jw
 //rate limiting middleware
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 10, // limit each IP to 10 requests per windowMs
+    max: 50, // limit each IP to 50 requests per windowMs
     message: "Too many attempts, please try again after 15 minutes",
     standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
     legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+    skip: (req) => process.env.NODE_ENV === 'development'
 })
 
 const generalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
+    max: 500, // limit each IP to 500 requests per windowMs
     message: "Too many requests, please slow down",
     standardHeaders: true,
     legacyHeaders: false,
+    skip: (req) => process.env.NODE_ENV === 'development'
 })
 
 //basic healthcheck route 
@@ -59,7 +61,7 @@ app.use("/api/v1/bookings", generalLimiter, bookingRouter)
 app.use("/api/v1/admin", generalLimiter, adminRouter)
 app.use("/api/v1/reviews", generalLimiter, reviewRouter)
 app.use("/api/v1/healthCheck", healthCheckRouter)
-app.use("/api/v1/payments", generalLimiter , paymentRouter) // Health check typically doesn't need rate limiting
+app.use("/api/v1/payments", generalLimiter , paymentRouter) 
 
 // Centralized error handler (must be after all routes)
 // Returns consistent JSON: { success: false, statusCode, message, stack?(dev) }

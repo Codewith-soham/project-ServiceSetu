@@ -3,7 +3,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { ApiError } from "../utils/ApiError.js";
 import crypto from "crypto";
 
-import { razorpayInstance, calculateFees, verifyRazorpaySignature } from "../utils/razorpay.util.js";
+import { getRazorpayInstance, calculateFees, verifyRazorpaySignature } from "../utils/razorpay.util.js";
 import { sendNotification, NOTIFICATION_EVENTS } from "../socket/notification.js";
 
 import { Booking } from "../models/booking.model.js";
@@ -13,11 +13,20 @@ import { Service } from "../models/service.model.js";
 //create controller
 
 const createPaymentOrder = asyncHandler(async (req,res) => {
-    const { providerId , bookingDate , note } = req.body;
+  const { providerId , bookingDate , note, address } = req.body;
 
     if(!providerId || !bookingDate){
         throw new ApiError(400,'Provider ID and booking date are required');
     }
+
+  const bookingDateValue = new Date(bookingDate);
+  if (Number.isNaN(bookingDateValue.getTime())) {
+    throw new ApiError(400, "Invalid booking date");
+  }
+
+  if (bookingDateValue < new Date()) {
+    throw new ApiError(400, "Booking date cannot be in the past");
+  }
 
      // Get provider
   const provider = await ServiceProvider.findById(providerId);
@@ -34,13 +43,39 @@ const createPaymentOrder = asyncHandler(async (req,res) => {
     throw new ApiError(404, "Service pricing not found");
   }
 
-  const { price, platformFee, providerAmount } = calculateFees(
+  const startOfDay = new Date(bookingDateValue);
+  startOfDay.setHours(0, 0, 0, 0);
+  const endOfDay = new Date(bookingDateValue);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const existingBooking = await Booking.findOne({
+    provider: providerId,
+    bookingDate: { $gte: startOfDay, $lte: endOfDay },
+    status: { $in: ["awaiting_payment", "pending", "accepted"] },
+  });
+
+  if (existingBooking) {
+    throw new ApiError(409, "Provider already has a booking on this date");
+  }
+
+  const {
+    basePrice,
+    rawTotal,
+    amountToCharge,
+    platformFee,
+    providerAmount,
+    razorpayFee,
+    roundUpMargin,
+    platformEarning,
+    pricingVersion,
+  } = calculateFees(
     service.price
   );
 
   //  Create Razorpay Order
+  const razorpayInstance = getRazorpayInstance();
   const order = await razorpayInstance.orders.create({
-    amount: price * 100, // paise
+    amount: Math.round(amountToCharge * 100), // paise
     currency: "INR",
     receipt: `receipt_${Date.now()}`,
   });
@@ -53,11 +88,16 @@ const createPaymentOrder = asyncHandler(async (req,res) => {
   const booking = await Booking.create({
     user: req.user._id,
     provider: providerId,
-    bookingDate,
+    bookingDate: bookingDateValue,
     note,
-    price,
+    address: address || "",
+    price: basePrice,
     platformFee,
+    razorpayFee,
+    roundUpMargin,
     providerAmount,
+    amountToCharge,
+    pricingVersion,
     razorpayOrderId: order.id,
     status: "awaiting_payment",
     paymentStatus: "pending",
@@ -71,6 +111,19 @@ const createPaymentOrder = asyncHandler(async (req,res) => {
         bookingId: booking._id,
         razorpayOrderId: order.id,
         amount: order.amount,
+        razorpayKeyId: process.env.RAZORPAY_KEY_ID || "",
+        breakdown: {
+          basePrice,
+          rawTotal,
+          platformFee,
+          razorpayFee,
+          roundUpMargin,
+          providerPayout: providerAmount,
+          providerAmount,
+          platformProjectedEarning: platformEarning,
+          customerTotal: amountToCharge,
+          pricingVersion,
+        },
       },
       "Order created successfully"
     )
@@ -222,6 +275,7 @@ const refundPayment = asyncHandler(async (req, res) => {
   }
 
   if (booking.paymentStatus === "paid") {
+    const razorpayInstance = getRazorpayInstance();
     await razorpayInstance.payments.refund(
       booking.razorpayPaymentId
     );

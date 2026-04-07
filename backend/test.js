@@ -419,7 +419,12 @@ async function main() {
     method: "GET",
     path: "/getProviders/provider",
     expectedStatuses: [200],
-    validate: (result) => Array.isArray(unwrapResponseData(result)) ? true : "provider list should be an array",
+    validate: (result) => {
+      const payload = unwrapResponseData(result);
+      return Array.isArray(payload?.data) && payload?.pagination
+        ? true
+        : "provider list payload should include data[] and pagination";
+    },
   });
 
   const filteredProvidersResult = await runJsonTest({
@@ -427,7 +432,12 @@ async function main() {
     method: "GET",
     path: `/getProviders/provider?serviceType=${encodeURIComponent(DEFAULT_SERVICE_TYPE)}`,
     expectedStatuses: [200],
-    validate: (result) => Array.isArray(unwrapResponseData(result)) ? true : "filtered provider list should be an array",
+    validate: (result) => {
+      const payload = unwrapResponseData(result);
+      return Array.isArray(payload?.data) && payload?.pagination
+        ? true
+        : "filtered provider list payload should include data[] and pagination";
+    },
   });
 
   await runJsonTest({
@@ -435,12 +445,17 @@ async function main() {
     method: "GET",
     path: `/providers/nearby?lat=${encodeURIComponent(NEARBY_LAT)}&lon=${encodeURIComponent(NEARBY_LON)}&radius=${encodeURIComponent(NEARBY_RADIUS)}&serviceType=${encodeURIComponent(DEFAULT_SERVICE_TYPE)}`,
     expectedStatuses: [200],
-    validate: (result) => Array.isArray(unwrapResponseData(result)) ? true : "nearby provider list should be an array",
+    validate: (result) => {
+      const payload = unwrapResponseData(result);
+      return Array.isArray(payload?.data) && payload?.pagination
+        ? true
+        : "nearby provider list payload should include data[] and pagination";
+    },
   });
 
-  const filteredProviders = unwrapResponseData(filteredProvidersResult) || [];
+  const filteredProviders = unwrapResponseData(filteredProvidersResult)?.data || [];
   const listedProvider = filteredProviders.find((provider) => provider?.serviceType === DEFAULT_SERVICE_TYPE)
-    || (unwrapResponseData(publicProvidersResult) || []).find((provider) => provider?.serviceType === DEFAULT_SERVICE_TYPE)
+    || (unwrapResponseData(publicProvidersResult)?.data || []).find((provider) => provider?.serviceType === DEFAULT_SERVICE_TYPE)
     || null;
 
   const bookingPrerequisiteReady = typeof listedProvider?.price === "number";
@@ -503,9 +518,9 @@ async function main() {
     });
 
     await runJsonTest({
-      label: "PATCH /bookings/:bookingId/complete-by-provider",
+      label: "PATCH /bookings/:bookingId/complete",
       method: "PATCH",
-      path: `/bookings/${bookingId}/complete-by-provider`,
+      path: `/bookings/${bookingId}/complete`,
       token: providerPersona.token,
       expectedStatuses: [200],
     });
