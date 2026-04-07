@@ -30,3 +30,5 @@ Thumbs.db
 # Local reports and generated docs
 AUDIT_REPORT.txt
 PROJECT_HEALTH_REPORT.txt
+project_context.md
+CONTRACT.md 
