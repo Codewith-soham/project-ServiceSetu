@@ -127,13 +127,13 @@ const Navbar: React.FC = () => {
               variant="outline"
               size="sm"
               className="hidden sm:flex"
-              onClick={() => navigate('/login-choice')}
+              onClick={() => navigate('/login')}
             >
               Login
             </Button>
             <Button
               size="sm"
-              onClick={() => navigate('/signup-choice')}
+              onClick={() => navigate('/signup')}
             >
               Sign Up
             </Button>

@@ -18,8 +18,6 @@ const ContactPage: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate API call
-    console.log('Form Submit:', formData);
     setSuccess(true);
     setTimeout(() => {
       setSuccess(false);
@@ -28,7 +26,7 @@ const ContactPage: React.FC = () => {
   };
 
   const contactInfos = [
-    { icon: Phone, label: 'Call Us', value: '+1 (555) 000-0000', color: 'text-blue-400' },
+    { icon: Phone, label: 'Call Us', value: '+91 98765 43210', color: 'text-blue-400' },
     { icon: Mail, label: 'Email Us', value: 'support@servicesetu.com', color: 'text-purple-400' },
     { icon: MapPin, label: 'Visit Us', value: '123 Market St, San Francisco, CA', color: 'text-green-400' },
   ];
@@ -80,7 +78,7 @@ const ContactPage: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <Input 
                     label="Phone Number (Optional)" 
-                    placeholder="+1 (555) 000-0000" 
+                    placeholder="+91 98765 43210" 
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   />

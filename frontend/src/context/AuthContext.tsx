@@ -204,14 +204,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateProfile = (data: Partial<AuthUser>) => {
-    if (user) {
+    setUser((current) => {
+      if (!current) return current;
       console.debug('[auth:updateProfile] before', {
-        id: user.id,
-        currentRole: user.role,
-        nextRole: data.role ?? user.role,
+        id: current.id,
+        currentRole: current.role,
+        nextRole: data.role ?? current.role,
       });
-      setUser({ ...user, ...data });
-    }
+      return { ...current, ...data };
+    });
   };
 
   return (

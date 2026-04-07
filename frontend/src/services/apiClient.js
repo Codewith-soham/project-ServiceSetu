@@ -151,6 +151,24 @@ export const providerApi = {
   },
 
   /**
+   * @param {{ lat?: number, lon?: number, address?: string, radius?: number, serviceType?: string, page?: number, limit?: number }} filters
+   */
+  async getNearbyProviders(filters = {}) {
+    const params = new URLSearchParams();
+    if (filters.lat !== undefined) params.set("lat", String(filters.lat));
+    if (filters.lon !== undefined) params.set("lon", String(filters.lon));
+    if (filters.address) params.set("address", filters.address);
+    params.set("radius", String(filters.radius ?? 5000));
+    params.set("page", String(filters.page ?? 1));
+    params.set("limit", String(filters.limit ?? 10));
+    if (filters.serviceType) params.set("serviceType", filters.serviceType);
+
+    return request(`/providers/nearby?${params.toString()}`, {
+      method: "GET",
+    });
+  },
+
+  /**
    * CONTRACT has no GET-by-id route; resolves the provider by walking paginated
    * GET /getProviders/provider until a matching `id` is found.
    * @param {string} id
@@ -193,6 +211,12 @@ export const providerApi = {
     params.set("page", "1");
     params.set("limit", "10");
     return request(`/bookings/provider?${params.toString()}`, {
+      method: "GET",
+    });
+  },
+
+  async getProviderEarnings() {
+    return request("/bookings/provider/earnings", {
       method: "GET",
     });
   },
@@ -243,8 +267,8 @@ export const bookingApi = {
 
 export const paymentApi = {
   /**
-   * CONTRACT: POST /payments/create-order body is { providerId, bookingDate, note? }.
-   * @param {{ providerId: string, bookingDate: string, note?: string }} orderPayload
+  * CONTRACT: POST /payments/create-order body is { providerId, bookingDate, note?, address? }.
+  * @param {{ providerId: string, bookingDate: string, note?: string, address?: string }} orderPayload
    */
   async createOrder(orderPayload) {
     return request("/payments/create-order", {

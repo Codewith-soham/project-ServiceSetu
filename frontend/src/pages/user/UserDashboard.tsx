@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -16,7 +16,8 @@ import {
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
-import { services, mockBookings } from '../../data/mockData';
+import { services } from '../../data/mockData';
+import { userApi } from '../../services/apiClient';
 
 const UserDashboard: React.FC = () => {
   const { user, logout, updateProfile } = useAuth();
@@ -25,13 +26,60 @@ const UserDashboard: React.FC = () => {
   const activeTab = searchParams.get('tab') || 'dashboard';
   const [isEditing, setIsEditing] = useState(false);
   const [searchService, setSearchService] = useState('');
-  const [bookings, setBookings] = useState(mockBookings);
+  const [bookings, setBookings] = useState<any[]>([]);
   const [profileData, setProfileData] = useState({
     name: user?.name || '',
     email: user?.email || '',
     phone: user?.phone || '',
     location: user?.location || ''
   });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchDashboardData = async () => {
+      try {
+        const response = await userApi.getDashboard();
+        
+        // Maps backend Booking model to the mock format expected by JSX
+        const mappedBookings = (response?.data?.data || []).map((b: any) => {
+          const bDate = new Date(b.bookingDate);
+          return {
+            id: b._id,
+            provider: b.provider?.user?.fullname || 'Provider',
+            service: b.provider?.serviceType || 'Service',
+            date: bDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
+            time: bDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            amount: `₹${b.price || 0}`,
+            status: mapApiStatusToUI(b.status)
+          };
+        });
+        
+        if (!cancelled) {
+          setBookings(mappedBookings);
+        }
+      } catch {
+        if (!cancelled) {
+          setBookings([]);
+        }
+      }
+    };
+
+    fetchDashboardData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const mapApiStatusToUI = (status: string) => {
+    const s = status?.toLowerCase();
+    if (['pending', 'awaiting_payment'].includes(s)) return 'Pending';
+    if (s === 'accepted') return 'Accepted';
+    if (['service_completed_by_provider', 'completed'].includes(s)) return 'Completed';
+    if (['cancelled_by_user', 'rejected_by_provider'].includes(s)) return 'Cancelled';
+    return 'Pending';
+  };
 
   const handleLogout = () => {
     logout();
@@ -55,7 +103,7 @@ const UserDashboard: React.FC = () => {
   );
 
   return (
-    <div className="flex flex-col w-full animate-fade-in py-12 px-8 md:px-16 container mx-auto">
+    <div className="flex flex-col w-full py-12 px-8 md:px-16 container mx-auto">
       {/* Header & Tabs */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-12">
         <div className="space-y-1">
@@ -65,7 +113,7 @@ const UserDashboard: React.FC = () => {
       </div>
 
       {/* Main Content Area */}
-      <div className="animate-fade-in">
+      <div>
         {activeTab === 'dashboard' && (
           <div className="space-y-12">
             {/* Search Bar */}
@@ -139,10 +187,12 @@ const UserDashboard: React.FC = () => {
                       <td className="px-8 py-6 text-sm font-black text-white">{booking.amount}</td>
                       <td className="px-8 py-6">
                         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${booking.status === 'Completed' ? 'bg-green-500/10 text-green-500' :
+                          booking.status === 'Accepted' ? 'bg-blue-500/10 text-blue-500' :
                           booking.status === 'Pending' ? 'bg-yellow-500/10 text-yellow-500' :
                             'bg-red-500/10 text-red-500'
                           }`}>
                           {booking.status === 'Completed' && <CheckCircle2 size={10} />}
+                          {booking.status === 'Accepted' && <Clock size={10} />}
                           {booking.status === 'Pending' && <Clock size={10} />}
                           {booking.status === 'Cancelled' && <XCircle size={10} />}
                           {booking.status}

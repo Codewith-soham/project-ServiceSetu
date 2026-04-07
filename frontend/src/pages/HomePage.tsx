@@ -1,16 +1,33 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Search, MapPin, Star, Zap, Droplets, SprayCan, Wrench } from 'lucide-react';
 import Button from '../components/ui/Button';
-import Input from '../components/ui/Input';
 import Card from '../components/ui/Card';
 import { useAuth } from '../context/AuthContext';
+import { providerApi } from '../services/apiClient';
+
+const DEFAULT_PROVIDER_IMAGE = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop';
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const [searchService, setSearchService] = useState('');
   const [searchLocation, setSearchLocation] = useState('');
+  const [featuredProviders, setFeaturedProviders] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchFeaturedProviders = async () => {
+      try {
+        const response = await providerApi.getProviders(1, { limit: 3 });
+        const list = Array.isArray(response?.data?.data) ? response.data.data : [];
+        setFeaturedProviders(list.slice(0, 3));
+      } catch {
+        setFeaturedProviders([]);
+      }
+    };
+
+    fetchFeaturedProviders();
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,12 +39,6 @@ const HomePage: React.FC = () => {
     { name: 'Plumber', icon: Droplets, color: 'text-blue-400', bg: 'bg-blue-400/10' },
     { name: 'Cleaning', icon: SprayCan, color: 'text-green-400', bg: 'bg-green-400/10' },
     { name: 'Repair', icon: Wrench, color: 'text-purple-400', bg: 'bg-purple-400/10' },
-  ];
-
-  const featuredProviders = [
-    { id: '1', name: 'Alex Johnson', service: 'Master Electrician', rating: 4.9, reviews: 124, image: 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=400&h=400&fit=crop' },
-    { id: '2', name: 'Maria Garcia', service: 'Professional Cleaner', rating: 4.8, reviews: 89, image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&h=400&fit=crop' },
-    { id: '3', name: 'David Chen', service: 'Plumbing Expert', rating: 5.0, reviews: 56, image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop' },
   ];
 
   return (
@@ -98,7 +109,7 @@ const HomePage: React.FC = () => {
             <Card 
               key={service.name} 
               interactive 
-              onClick={() => navigate(isAuthenticated ? '/services' : '/login-choice')}
+              onClick={() => navigate(isAuthenticated ? '/services' : '/login')}
               className="flex flex-col items-center text-center py-10 group"
             >
               <div className={`w-16 h-16 ${service.bg} rounded-2xl flex items-center justify-center mb-6 border border-white/5 group-hover:scale-110 transition-transform duration-300`}>
@@ -123,23 +134,27 @@ const HomePage: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {featuredProviders.map((provider) => (
-              <Card key={provider.id} className="p-0 overflow-hidden flex flex-col blue-glow-hover">
+              <Card key={provider.id || provider._id} className="p-0 overflow-hidden flex flex-col blue-glow-hover">
                 <div className="h-48 overflow-hidden relative">
-                  <img src={provider.image} alt={provider.name} className="w-full h-full object-cover" />
+                  <img
+                    src={provider.image || DEFAULT_PROVIDER_IMAGE}
+                    alt={provider.name || 'Provider'}
+                    className="w-full h-full object-cover"
+                  />
                   <div className="absolute top-4 right-4 glass px-3 py-1 rounded-full flex items-center gap-1">
                     <Star size={14} className="text-yellow-400 fill-yellow-400" />
-                    <span className="text-xs font-bold text-white">{provider.rating}</span>
+                    <span className="text-xs font-bold text-white">{provider.rating ?? 0}</span>
                   </div>
                 </div>
                 <div className="p-6">
-                  <h3 className="text-xl font-bold mb-1">{provider.name}</h3>
-                  <p className="text-[#2563EB] text-sm font-medium mb-4">{provider.service}</p>
+                  <h3 className="text-xl font-bold mb-1">{provider.name || 'Service Provider'}</h3>
+                  <p className="text-[#2563EB] text-sm font-medium mb-4">{provider.service || provider.serviceType || 'General Service'}</p>
                   <div className="flex justify-between items-center pt-6 border-t border-white/5">
-                    <span className="text-[#4B5563] text-xs uppercase tracking-wider font-bold">{provider.reviews} Reviews</span>
+                    <span className="text-[#4B5563] text-xs uppercase tracking-wider font-bold">{provider.totalReviews ?? 0} Reviews</span>
                     <Button 
                       size="sm" 
                       variant="outline" 
-                      onClick={() => navigate(isAuthenticated ? `/provider/${provider.id}` : '/login-choice')}
+                      onClick={() => navigate(isAuthenticated ? `/provider/${provider.id || provider._id}` : '/login')}
                     >
                       View Profile
                     </Button>
@@ -148,6 +163,9 @@ const HomePage: React.FC = () => {
               </Card>
             ))}
           </div>
+          {featuredProviders.length === 0 && (
+            <div className="text-center text-[#9CA3AF] mt-8">No featured providers available right now.</div>
+          )}
         </div>
       </section>
 

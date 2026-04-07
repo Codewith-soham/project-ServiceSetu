@@ -94,6 +94,11 @@ const SignUpPage: React.FC = () => {
           });
 
           updateProfile({ role: 'provider' });
+          updateProfile({
+            role: 'provider',
+            serviceType: formData.serviceType,
+            pricing: String(formData.pricing || ''),
+          });
           console.info(`[signup:${traceId}] updateProfile dispatched`, { nextRole: 'provider' });
           
           // STEP C: Navigate to provider dashboard

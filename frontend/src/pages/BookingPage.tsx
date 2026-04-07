@@ -4,6 +4,25 @@ import { Calendar, Clock, MapPin, FileEdit, ArrowLeft, ShieldCheck } from 'lucid
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
+import { paymentApi } from '../services/apiClient';
+
+const TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
+  const totalMinutes = index * 30;
+  const hour24 = Math.floor(totalMinutes / 60);
+  const minute = totalMinutes % 60;
+  const period = hour24 >= 12 ? 'PM' : 'AM';
+  const hour12 = hour24 % 12 || 12;
+  const paddedHour = String(hour12).padStart(2, '0');
+  const paddedMinute = String(minute).padStart(2, '0');
+
+  return {
+    value: `${paddedHour}:${paddedMinute}`,
+    label: `${hour12}:${paddedMinute} ${period}`,
+    period,
+  };
+});
+
+const DEFAULT_PROVIDER_IMAGE = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop';
 
 const BookingPage: React.FC = () => {
   const location = useLocation();
@@ -12,18 +31,78 @@ const BookingPage: React.FC = () => {
   
   const [bookingData, setBookingData] = useState({
     date: '',
-    time: '',
+    time: '09:00',
+    period: 'AM',
     address: '',
     notes: ''
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   if (!provider || !pkg) {
     return <div className="p-32 text-center text-3xl font-bold">Booking Session Expired. Please start again.</div>;
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    navigate('/payment', { state: { provider, package: pkg, booking: bookingData } });
+    try {
+      setLoading(true);
+      setError(null);
+
+      if (!bookingData.date || !bookingData.time || !bookingData.period) {
+        throw new Error('Please select both date and time');
+      }
+
+      const [year, month, day] = bookingData.date.split('-').map(Number);
+      let [hours, minutes] = bookingData.time.split(':').map(Number);
+
+      if (bookingData.period === 'PM' && hours !== 12) {
+        hours += 12;
+      }
+
+      if (bookingData.period === 'AM' && hours === 12) {
+        hours = 0;
+      }
+
+      const localDate = new Date(year, (month || 1) - 1, day, hours, minutes, 0, 0);
+      if (Number.isNaN(localDate.getTime())) {
+        throw new Error('Invalid booking date or time');
+      }
+
+      const bookingDate = localDate.toISOString();
+      const payload = {
+        providerId: provider.id || provider._id,
+        bookingDate,
+        note: bookingData.notes,
+        address: bookingData.address,
+      };
+
+      const response = await paymentApi.createOrder(payload);
+      
+      const bookingId = response?.data?._id || response?.data?.id;
+      const responseBookingId = response?.data?.bookingId || bookingId;
+      if (!responseBookingId) {
+        throw new Error('Failed to retrieve booking ID from response');
+      }
+
+      setSuccessMessage('Order created. Redirecting to secure payment.');
+      navigate('/payment', {
+        state: {
+          bookingId: responseBookingId,
+          provider,
+          package: pkg,
+          order: response?.data,
+          bookingDate,
+          address: bookingData.address,
+        }
+      });
+    } catch (err: any) {
+      console.error('Booking failed:', err);
+      setError(err.message || 'Something went wrong. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -64,13 +143,23 @@ const BookingPage: React.FC = () => {
                     value={bookingData.date}
                     onChange={(e) => setBookingData({ ...bookingData, date: e.target.value })}
                   />
-                  <Input 
-                    label="Select Time" 
-                    type="time" 
-                    required 
-                    value={bookingData.time}
-                    onChange={(e) => setBookingData({ ...bookingData, time: e.target.value })}
-                  />
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-[#9CA3AF]">Select Time</label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <select
+                        required
+                        className="w-full rounded-xl border border-[#334155] bg-[#0F172A] px-4 py-4 text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                        value={bookingData.time}
+                        onChange={(e) => setBookingData({ ...bookingData, time: e.target.value })}
+                      >
+                        {TIME_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-[#9CA3AF]">Service Address</label>
@@ -97,8 +186,18 @@ const BookingPage: React.FC = () => {
                     />
                   </div>
                 </div>
-                <Button type="submit" size="lg" className="w-full h-16 text-lg font-bold">
-                  Proceed to Payment Selection
+                {error && (
+                  <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-sm font-bold">
+                    {error}
+                  </div>
+                )}
+                {successMessage && (
+                  <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-xl text-green-400 text-sm font-bold">
+                    {successMessage}
+                  </div>
+                )}
+                <Button type="submit" size="lg" className="w-full h-16 text-lg font-bold" disabled={loading}>
+                  {loading ? 'Creating Booking...' : 'Book Now'}
                 </Button>
               </form>
             </Card>
@@ -111,7 +210,7 @@ const BookingPage: React.FC = () => {
               
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 rounded-xl overflow-hidden shadow-lg">
-                  <img src={provider.image} className="w-full h-full object-cover" />
+                  <img src={provider.image || DEFAULT_PROVIDER_IMAGE} className="w-full h-full object-cover" />
                 </div>
                 <div>
                   <h4 className="font-bold text-lg">{provider.name}</h4>
@@ -130,11 +229,11 @@ const BookingPage: React.FC = () => {
                 </div>
                 <div className="flex justify-between text-sm pt-4 border-t border-white/10">
                   <span className="text-[#9CA3AF]">Subtotal</span>
-                  <span className="text-white font-bold">${pkg.price}</span>
+                  <span className="text-white font-bold">₹{pkg.price}</span>
                 </div>
                 <div className="flex justify-between text-xl pt-4 border-t border-white/10 text-[#2563EB] font-black">
                   <span>Total</span>
-                  <span>${pkg.price}</span>
+                  <span>₹{pkg.price}</span>
                 </div>
               </div>
 

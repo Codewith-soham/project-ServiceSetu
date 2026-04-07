@@ -9,10 +9,11 @@ function cn(...inputs: ClassValue[]) {
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
+  icon?: React.ReactNode;
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type, label, error, ...props }, ref) => {
+  ({ className, type, label, error, icon, ...props }, ref) => {
     return (
       <div className="w-full space-y-2">
         {label && (
@@ -20,19 +21,27 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             {label}
           </label>
         )}
-        <input
-          type={type}
-          className={cn(
-            'flex h-12 w-full rounded-[10px] border border-[#334155] bg-[#0F172A] px-3 py-2 text-sm text-[#F9FAFB]',
-            'ring-offset-[#0F172A] file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-[#4B5563]',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-2',
-            'disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200',
-            error && 'border-red-500 focus-visible:ring-red-500',
-            className
+        <div className="relative group">
+          {icon && (
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 transition-colors group-focus-within:text-[#2563EB]">
+              {icon}
+            </div>
           )}
-          ref={ref}
-          {...props}
-        />
+          <input
+            type={type}
+            className={cn(
+              'flex h-12 w-full rounded-[10px] border border-[#334155] bg-[#0F172A] py-2 text-sm text-[#F9FAFB]',
+              icon ? 'pl-10 pr-3' : 'px-3',
+              'ring-offset-[#0F172A] file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-[#4B5563]',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-2',
+              'disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200',
+              error && 'border-red-500 focus-visible:ring-red-500',
+              className
+            )}
+            ref={ref}
+            {...props}
+          />
+        </div>
         {error && <p className="text-xs text-red-500">{error}</p>}
       </div>
     );

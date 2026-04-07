@@ -1,26 +1,105 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router';
-import { Star, MapPin, CheckCircle, ShieldCheck, Mail, Phone, Calendar, Clock, ArrowLeft, MessageSquare } from 'lucide-react';
-import { providers } from '../data/mockData';
+import { useParams, useNavigate } from 'react-router';
+import { Star, MapPin, CheckCircle, ShieldCheck, Clock, ArrowLeft, MessageSquare } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
+import { providerApi } from '../services/apiClient';
+
+const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop';
+
+const buildDefaultPackages = (provider: any) => {
+  const basePrice = Number(provider?.price ?? 0);
+  const safePrice = Number.isFinite(basePrice) && basePrice > 0 ? basePrice : 500;
+
+  return [
+    {
+      id: `pkg-basic-${provider?.id || 'default'}`,
+      name: 'Standard Visit',
+      price: safePrice,
+      time: '1-2 hrs',
+      features: [
+        'On-site inspection',
+        'Service execution',
+        'Work completion summary',
+      ],
+    },
+  ];
+};
 
 const ProviderDetailsPage: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
-  const provider = providers.find(p => p.id === id);
+  const [provider, setProvider] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('packages');
   const [msgSent, setMsgSent] = useState(false);
 
-  if (!provider) {
+  useEffect(() => {
+    const fetchProvider = async () => {
+      if (!id) {
+        setLoadError('Invalid provider id');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setLoadError(null);
+        const response = await providerApi.getProviderById(id);
+        const apiProvider = response?.data;
+
+        if (!apiProvider) {
+          throw new Error('Provider not found');
+        }
+
+        const normalizedProvider = {
+          id: String(apiProvider.id ?? id),
+          name: apiProvider.name || 'Service Provider',
+          service: apiProvider.service || apiProvider.serviceType || 'General Service',
+          serviceType: apiProvider.serviceType || 'general',
+          rating: apiProvider.rating ?? 0,
+          reviews: apiProvider.totalReviews ?? 0,
+          price: apiProvider.price ?? null,
+          pricing: apiProvider.price ? `₹${apiProvider.price}` : 'Contact for pricing',
+          location: apiProvider.location || 'Location unavailable',
+          experience: apiProvider.experience || 'N/A',
+          bio:
+            apiProvider.bio ||
+            `Experienced ${apiProvider.serviceType || 'service'} professional available for bookings.`,
+          image: apiProvider.image || FALLBACK_IMAGE,
+          packages:
+            Array.isArray(apiProvider.packages) && apiProvider.packages.length > 0
+              ? apiProvider.packages
+              : buildDefaultPackages(apiProvider),
+        };
+
+        setProvider(normalizedProvider);
+      } catch (err: any) {
+        setLoadError(err?.message || 'Failed to load provider');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProvider();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="p-32 text-center text-2xl font-bold text-[#9CA3AF]">Loading provider...</div>
+    );
+  }
+
+  if (!provider || loadError) {
     return <div className="p-32 text-center text-3xl font-bold">Provider Not Found</div>;
   }
 
   const handleBooking = (pkg: any) => {
     if (!isAuthenticated) {
-      navigate('/login-choice');
+      navigate('/login');
       return;
     }
     navigate('/booking', { state: { provider, package: pkg } });
@@ -129,7 +208,7 @@ const ProviderDetailsPage: React.FC = () => {
                             {pkg.time} Est.
                           </div>
                         </div>
-                        <div className="text-2xl font-bold text-[#2563EB] group-hover:scale-110 transition-transform">${pkg.price}</div>
+                        <div className="text-2xl font-bold text-[#2563EB] group-hover:scale-110 transition-transform">₹{pkg.price}</div>
                       </div>
 
                       <ul className="space-y-3 flex-grow">

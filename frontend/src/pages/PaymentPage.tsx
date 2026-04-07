@@ -1,214 +1,195 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
-import { CreditCard, Smartphone, Banknote, ShieldCheck, CheckCircle, ArrowLeft, ChevronRight, Lock, Calendar, Clock } from 'lucide-react';
+import { ArrowLeft, BadgeIndianRupee, CircleCheck, ReceiptText, ShieldCheck } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import Input from '../components/ui/Input';
+import { paymentApi } from '../services/apiClient';
+
+declare global {
+  interface Window {
+    Razorpay?: any;
+  }
+}
+
+const ensureRazorpayLoaded = async () => {
+  if (window.Razorpay) return true;
+
+  await new Promise<void>((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Failed to load payment SDK'));
+    document.body.appendChild(script);
+  });
+
+  return Boolean(window.Razorpay);
+};
 
 const PaymentPage: React.FC = () => {
-  const location = useLocation();
   const navigate = useNavigate();
-  const { provider, package: pkg, booking } = location.state || {};
-  
-  const [paymentMethod, setPaymentMethod] = useState<'upi' | 'card' | 'cod'>('upi');
-  const [processing, setProcessing] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
+  const location = useLocation();
+  const [isPaying, setIsPaying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!provider || !pkg || !booking) {
-    return (
-      <div className="min-h-[80vh] flex flex-col items-center justify-center p-8 space-y-6">
-        <div className="text-3xl font-bold text-white">Session Expired</div>
-        <p className="text-[#9CA3AF]">Please select a service and package again to proceed.</p>
-        <Button onClick={() => navigate('/services')}>Return to Services</Button>
-      </div>
-    );
-  }
+  const order = location.state?.order;
+  const breakdown = order?.breakdown;
 
-  const handlePayment = (e: React.FormEvent) => {
-    e.preventDefault();
-    setProcessing(true);
-    // Simulate payment processing
-    setTimeout(() => {
-      setProcessing(false);
-      setShowSuccess(true);
-    }, 2000);
+  const bill = useMemo(() => {
+    const basePrice = Number(breakdown?.basePrice || 0);
+    const platformFee = Number(breakdown?.platformFee || 0);
+    const razorpayFee = Number(breakdown?.razorpayFee || 0);
+    const roundUpMargin = Number(breakdown?.roundUpMargin || 0);
+    const customerTotal = Number(breakdown?.customerTotal || 0);
+    const providerPayout = Number(breakdown?.providerPayout || 0);
+
+    return {
+      basePrice,
+      platformFee,
+      razorpayFee,
+      roundUpMargin,
+      customerTotal,
+      providerPayout,
+    };
+  }, [breakdown]);
+
+  const payNow = async () => {
+    try {
+      setError(null);
+      setIsPaying(true);
+
+      if (!order?.razorpayOrderId || !order?.amount) {
+        throw new Error('Payment order missing. Please create booking again.');
+      }
+
+      if (!order?.razorpayKeyId) {
+        throw new Error('Payment key is not configured on server. Please contact support.');
+      }
+
+      const loaded = await ensureRazorpayLoaded();
+      if (!loaded || !window.Razorpay) {
+        throw new Error('Razorpay SDK not available. Please retry.');
+      }
+
+      const options = {
+        key: order?.razorpayKeyId,
+        amount: order.amount,
+        currency: 'INR',
+        order_id: order.razorpayOrderId,
+        name: 'ServiceSetu',
+        description: 'Service booking payment',
+        notes: {
+          bookingId: order.bookingId,
+        },
+        handler: async (response: any) => {
+          await paymentApi.verifyPayment({
+            razorpayOrderId: response.razorpay_order_id,
+            razorpayPaymentId: response.razorpay_payment_id,
+            razorpaySignature: response.razorpay_signature,
+          });
+
+          navigate('/user/dashboard?tab=bookings', {
+            state: {
+              paymentSuccess: true,
+              bookingId: order.bookingId,
+            },
+          });
+        },
+      };
+
+      const razorpay = new window.Razorpay(options);
+      razorpay.on('payment.failed', (failure: any) => {
+        setError(failure?.error?.description || 'Payment failed. Please retry.');
+      });
+      razorpay.open();
+    } catch (err: any) {
+      setError(err?.message || 'Unable to initiate payment');
+    } finally {
+      setIsPaying(false);
+    }
   };
 
-  if (showSuccess) {
+  if (!order?.bookingId) {
     return (
       <div className="min-h-[80vh] flex items-center justify-center p-8 animate-fade-in">
-        <Card className="max-w-md w-full p-12 text-center space-y-8 glass blue-glow">
-          <div className="w-24 h-24 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6 scale-animation">
-            <CheckCircle className="text-green-500" size={48} />
-          </div>
-          <div className="space-y-4">
-            <h2 className="text-4xl font-bold">Booking Confirmed!</h2>
-            <p className="text-[#9CA3AF]">
-              Your service with <span className="text-white font-bold">{provider.name}</span> has been scheduled for <span className="text-white font-bold">{booking.date}</span> at <span className="text-white font-bold">{booking.time}</span>.
-            </p>
-          </div>
-          <div className="pt-8 space-y-4">
-            <Button size="full" onClick={() => navigate('/user/dashboard')}>
-              Go to My Dashboard
-            </Button>
-            <p className="text-xs text-[#4B5563]">Confirmation email sent to your registered address.</p>
-          </div>
+        <Card className="max-w-2xl w-full p-10 md:p-12 text-center space-y-6 glass blue-glow">
+          <h1 className="text-3xl md:text-4xl font-bold">Payment Session Missing</h1>
+          <p className="text-[#9CA3AF] leading-relaxed">
+            We could not find your payment order. Please restart booking.
+          </p>
+          <Button onClick={() => navigate('/services')} className="h-12">Back to Services</Button>
         </Card>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col w-full animate-fade-in py-12 px-8 md:px-16 container mx-auto">
-      <div className="max-w-5xl mx-auto space-y-12">
-        <div className="text-center space-y-4">
-          <h1 className="text-4xl font-bold">Secure <span className="text-[#2563EB]">Payment</span></h1>
-          <p className="text-[#9CA3AF]">Complete your booking by selecting a preferred payment method.</p>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-          {/* Methods */}
-          <div className="lg:col-span-2 space-y-10">
-            <div className="grid grid-cols-3 gap-4">
-              {[
-                { id: 'upi', label: 'UPI', icon: Smartphone, color: 'text-purple-400' },
-                { id: 'card', label: 'Card', icon: CreditCard, color: 'text-blue-400' },
-                { id: 'cod', label: 'COD', icon: Banknote, color: 'text-green-400' },
-              ].map((m) => (
-                <button
-                  key={m.id}
-                  onClick={() => setPaymentMethod(m.id as any)}
-                  className={`flex flex-col items-center justify-center p-6 rounded-2xl border-2 transition-all gap-4 ${
-                    paymentMethod === m.id 
-                    ? 'border-[#2563EB] bg-[#2563EB]/10' 
-                    : 'border-white/5 bg-white/5 hover:border-white/20'
-                  }`}
-                >
-                  <m.icon size={32} className={paymentMethod === m.id ? 'text-[#2563EB]' : m.color} />
-                  <span className={`text-sm font-bold ${paymentMethod === m.id ? 'text-white' : 'text-[#9CA3AF]'}`}>
-                    {m.label}
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            <Card className="p-10 space-y-8 glass-dark relative overflow-hidden active:scale-100">
-              <div className="absolute top-0 right-0 w-48 h-48 bg-[#2563EB]/5 rounded-bl-[200px] -z-10" />
-              
-              <form onSubmit={handlePayment} className="space-y-8">
-                {paymentMethod === 'upi' && (
-                  <div className="space-y-4 animate-fade-in">
-                    <h3 className="text-xl font-bold flex items-center gap-2">
-                      <Smartphone size={20} className="text-[#2563EB]" />
-                      UPI Payment
-                    </h3>
-                    <div className="space-y-4 pt-4 border-t border-white/5">
-                      <Input label="UPI ID" placeholder="user@okhdfc" required />
-                      <p className="text-xs text-[#4B5563]">You'll receive a payment request on your UPI app.</p>
-                    </div>
-                  </div>
-                )}
-
-                {paymentMethod === 'card' && (
-                  <div className="space-y-6 animate-fade-in">
-                    <h3 className="text-xl font-bold flex items-center gap-2">
-                      <CreditCard size={20} className="text-[#2563EB]" />
-                      Card Details
-                    </h3>
-                    <div className="space-y-6 pt-4 border-t border-white/5">
-                      <Input label="Cardholder Name" placeholder="John Doe" required />
-                      <Input label="Card Number" placeholder="0000 0000 0000 0000" maxLength={16} required />
-                      <div className="grid grid-cols-2 gap-6">
-                        <Input label="Expiry Date" placeholder="MM/YY" required />
-                        <Input label="CVV" placeholder="***" maxLength={3} type="password" required />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {paymentMethod === 'cod' && (
-                  <div className="space-y-6 animate-fade-in py-10 text-center">
-                    <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-green-500/20">
-                      <Banknote className="text-green-500" size={32} />
-                    </div>
-                    <h3 className="text-2xl font-bold">Cash on Delivery</h3>
-                    <p className="text-[#9CA3AF] max-w-sm mx-auto">
-                      Pay directly to the professional after the service is completed to your satisfaction.
-                    </p>
-                  </div>
-                )}
-
-                <div className="pt-6 border-t border-white/10 space-y-6">
-                  <div className="flex items-center justify-center gap-2 text-[#4B5563] text-xs font-bold uppercase tracking-widest">
-                    <Lock size={14} className="text-[#2563EB]" />
-                    SSL Secured Payment
-                  </div>
-                  <Button type="submit" size="full" className="h-16 text-lg font-black group" disabled={processing}>
-                    {processing ? 'Processing...' : (
-                      <span className="flex items-center justify-center gap-3">
-                        Pay ${pkg.price}
-                        <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
-                      </span>
-                    )}
-                  </Button>
-                </div>
-              </form>
-            </Card>
+    <div className="min-h-[80vh] p-8 animate-fade-in">
+      <div className="container mx-auto max-w-5xl grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <Card className="lg:col-span-2 p-8 md:p-10 space-y-8 glass blue-glow">
+          <div className="flex items-center gap-3 text-sm text-[#9CA3AF]">
+            <ReceiptText size={18} className="text-[#2563EB]" />
+            Professional invoice preview before payment
           </div>
 
-          {/* Checkout Info */}
-          <aside className="space-y-8">
-            <Card className="p-8 space-y-8 glass shadow-2xl sticky top-32 border-none">
-              <h3 className="text-xl font-bold">Checkout Summary</h3>
-              
-              <div className="space-y-6 py-6 border-y border-white/5">
-                <div className="space-y-2">
-                  <span className="text-[#4B5563] text-[10px] font-black uppercase tracking-widest">Service & Professional</span>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg overflow-hidden border border-white/10">
-                      <img src={provider.image} className="w-full h-full object-cover" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-sm">{provider.name}</h4>
-                      <p className="text-[#2563EB] text-[10px] font-bold uppercase">{pkg.name}</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <span className="text-[#4B5563] text-[10px] font-black uppercase tracking-widest">Schedule</span>
-                  <div className="flex items-center gap-6 text-xs text-white font-medium">
-                    <span className="flex items-center gap-2"><Calendar size={14} className="text-[#2563EB]" />{booking.date}</span>
-                    <span className="flex items-center gap-2"><Clock size={14} className="text-[#2563EB]" />{booking.time}</span>
-                  </div>
-                </div>
+          <h1 className="text-3xl md:text-4xl font-bold">Complete Your Payment</h1>
 
-                <div className="space-y-2">
-                  <span className="text-[#4B5563] text-[10px] font-black uppercase tracking-widest">Pricing</span>
-                  <div className="grid grid-cols-2 gap-y-2 text-xs">
-                    <span className="text-[#9CA3AF]">Service Charge</span>
-                    <span className="text-right text-white font-bold">${pkg.price}</span>
-                    <span className="text-[#9CA3AF]">Convenience Fee</span>
-                    <span className="text-right text-green-500 font-bold">FREE</span>
-                    <span className="text-white font-black text-lg pt-4">Total</span>
-                    <span className="text-[#2563EB] font-black text-lg pt-4 text-right">${pkg.price}</span>
-                  </div>
-                </div>
-              </div>
+          <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-[#9CA3AF]">Service Amount</span>
+              <span className="font-bold">₹{bill.basePrice.toFixed(2)}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-[#9CA3AF]">Platform Commission (2%)</span>
+              <span className="font-bold">₹{bill.platformFee.toFixed(2)}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-[#9CA3AF]">Payment Gateway Charges</span>
+              <span className="font-bold">₹{bill.razorpayFee.toFixed(2)}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-[#9CA3AF]">Adaptive Round-up Margin</span>
+              <span className="font-bold">₹{bill.roundUpMargin.toFixed(2)}</span>
+            </div>
+            <div className="border-t border-white/10 pt-4 flex items-center justify-between text-lg">
+              <span className="font-semibold">Total Payable</span>
+              <span className="font-black text-[#2563EB]">₹{bill.customerTotal.toFixed(2)}</span>
+            </div>
+          </div>
 
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center gap-3 text-[#9CA3AF] text-[10px]">
-                  <ShieldCheck size={16} className="text-[#2563EB]" />
-                  100% Secure Transaction
-                </div>
-                <div className="flex items-center gap-3 text-[#9CA3AF] text-[10px]">
-                  <CheckCircle size={16} className="text-[#2563EB]" />
-                  Service Quality Guarantee
-                </div>
-              </div>
-            </Card>
-          </aside>
-        </div>
+          {error && (
+            <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+              {error}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Button onClick={() => navigate(-1)} variant="ghost" className="h-12 inline-flex items-center justify-center gap-2">
+              <ArrowLeft size={16} />
+              Back
+            </Button>
+            <Button onClick={payNow} className="h-12 inline-flex items-center justify-center gap-2" disabled={isPaying}>
+              <BadgeIndianRupee size={16} />
+              {isPaying ? 'Opening Razorpay...' : 'Pay Securely'}
+            </Button>
+          </div>
+        </Card>
+
+        <Card className="p-8 space-y-5 glass">
+          <div className="flex items-center gap-3">
+            <ShieldCheck className="text-green-500" size={20} />
+            <p className="font-semibold">Payout Guarantee</p>
+          </div>
+          <div className="rounded-xl border border-green-500/30 bg-green-500/10 p-4">
+            <p className="text-xs uppercase tracking-widest text-green-400">Provider receives</p>
+            <p className="text-2xl font-black text-green-400">₹{bill.providerPayout.toFixed(2)}</p>
+          </div>
+          <div className="text-sm text-[#9CA3AF] space-y-3">
+            <p className="flex items-start gap-2"><CircleCheck size={16} className="text-green-500 mt-0.5" />Transparent invoice with itemized charges</p>
+            <p className="flex items-start gap-2"><CircleCheck size={16} className="text-green-500 mt-0.5" />Provider payout protected from fee fluctuations</p>
+            <p className="flex items-start gap-2"><CircleCheck size={16} className="text-green-500 mt-0.5" />Adaptive pricing policy supports growth</p>
+          </div>
+        </Card>
       </div>
     </div>
   );

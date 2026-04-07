@@ -35,7 +35,7 @@ const ServicesPage: React.FC = () => {
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium text-[#9CA3AF]">Price Range</span>
-                  <span className="text-xs text-[#2563EB] font-bold">Max ${priceRange}</span>
+                  <span className="text-xs text-[#2563EB] font-bold">Max ₹{priceRange}</span>
                 </div>
                 <input 
                   type="range" 
@@ -47,8 +47,8 @@ const ServicesPage: React.FC = () => {
                   onChange={(e) => setPriceRange(parseInt(e.target.value))}
                 />
                 <div className="flex justify-between text-[10px] text-[#4B5563]">
-                  <span>$0</span>
-                  <span>$1000</span>
+                  <span>₹0</span>
+                  <span>₹1000</span>
                 </div>
               </div>
 
@@ -106,7 +106,7 @@ const ServicesPage: React.FC = () => {
                 key={service.id} 
                 interactive 
                 className="group p-8 flex flex-col items-center text-center blue-glow-hover"
-                onClick={() => navigate(isAuthenticated ? `/providers?service=${service.id}` : '/login-choice')}
+                onClick={() => navigate(isAuthenticated ? `/providers?service=${service.id}` : '/login')}
               >
                 <div className={`w-14 h-14 ${service.bg} rounded-xl flex items-center justify-center mb-6 border border-white/5 group-hover:scale-110 transition-transform`}>
                   <div className={service.color}>Icon</div> {/* Replace with actual icons if needed */}
@@ -122,7 +122,7 @@ const ServicesPage: React.FC = () => {
               </Card>
             ))}
           </div>
-
+                onClick={() => navigate(isAuthenticated ? `/providers?service=${service.id}` : '/login')}
           {filteredServices.length === 0 && (
             <div className="py-20 text-center space-y-4">
               <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6">
