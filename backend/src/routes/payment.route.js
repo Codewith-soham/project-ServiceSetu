@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  checkGatewayStatus,
   createPaymentOrder,
   verifyPayment,
   acceptCompletion,
@@ -16,6 +17,7 @@ const router = Router();
 router.use(verifyJWT);
 
 // USER ROUTES
+router.get("/status", checkGatewayStatus);
 router.post("/create-order", requireRole("user"), createPaymentOrder);
 router.post("/verify", requireRole("user"), verifyPayment);
 router.patch("/:bookingId/accept", requireRole("user"), acceptCompletion);

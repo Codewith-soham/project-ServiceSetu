@@ -44,6 +44,7 @@ const addReview = asyncHandler(async (req, res) => {
         review = await Review.create({
             user: req.user._id,
             provider: providerId,
+            booking: bookingId,
             rating,
             comment: comment || ""
         });
@@ -69,6 +70,10 @@ const addReview = asyncHandler(async (req, res) => {
 const getProviderReviews = asyncHandler(async (req, res) => {
     const { providerId } = req.params;
     const { page = 1, limit = 10 } = req.query;
+
+    if (req.user?.role === "provider") {
+        throw new ApiError(403, "Providers cannot access reviews");
+    }
 
     const pageNum = Math.max(1, parseInt(page) || 1);
     const limitNum = Math.max(1, parseInt(limit) || 10);

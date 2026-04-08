@@ -6,6 +6,6 @@ import { authorizeRoles, verifyToken } from "../middlewares/auth.middleware.js";
 const router = Router();
 
 router.post("/", verifyToken, authorizeRoles("user"), addReview);
-router.get("/:providerId", getProviderReviews);
+router.get("/:providerId", verifyToken, authorizeRoles("user", "admin"), getProviderReviews);
 
 export default router;

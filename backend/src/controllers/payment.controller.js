@@ -10,6 +10,63 @@ import { Booking } from "../models/booking.model.js";
 import { ServiceProvider } from "../models/serviceProvider.model.js";
 import { Service } from "../models/service.model.js";
 
+const getGatewayMode = (keyId) => {
+  if (!keyId) return "unconfigured";
+  return keyId.startsWith("rzp_live_") ? "live" : "test";
+};
+
+const checkGatewayStatus = asyncHandler(async (req, res) => {
+  const keyId = process.env.RAZORPAY_KEY_ID || "";
+  const mode = getGatewayMode(keyId);
+
+  if (!keyId || !process.env.RAZORPAY_KEY_SECRET) {
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          configured: false,
+          reachable: false,
+          mode,
+          reason: "Missing RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET",
+        },
+        "Gateway status fetched"
+      )
+    );
+  }
+
+  try {
+    const razorpayInstance = getRazorpayInstance();
+    await razorpayInstance.orders.all({ count: 1 });
+
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          configured: true,
+          reachable: true,
+          mode,
+          keyHint: keyId.slice(0, 8) + "...",
+        },
+        "Gateway status fetched"
+      )
+    );
+  } catch (error) {
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          configured: true,
+          reachable: false,
+          mode,
+          keyHint: keyId.slice(0, 8) + "...",
+          reason: error?.description || error?.message || "Unable to reach Razorpay",
+        },
+        "Gateway status fetched"
+      )
+    );
+  }
+});
+
 //create controller
 
 const createPaymentOrder = asyncHandler(async (req,res) => {
@@ -34,14 +91,19 @@ const createPaymentOrder = asyncHandler(async (req,res) => {
     throw new ApiError(404, "Provider not found");
   }
 
-  // 2 Get service price
+  // 2 Get service price with fallback for environments missing seeded Service records.
+  const normalizedServiceType = String(provider.serviceType || "").trim().toLowerCase();
   const service = await Service.findOne({
-    serviceType: provider.serviceType,
+    serviceType: normalizedServiceType,
   });
 
-  if (!service) {
-    throw new ApiError(404, "Service pricing not found");
-  }
+  const servicePrice = Number(service?.price);
+  const providerPrice = Number(provider?.pricing);
+  const effectivePrice = Number.isFinite(servicePrice) && servicePrice > 0
+    ? servicePrice
+    : Number.isFinite(providerPrice) && providerPrice > 0
+      ? providerPrice
+      : 500;
 
   const startOfDay = new Date(bookingDateValue);
   startOfDay.setHours(0, 0, 0, 0);
@@ -68,9 +130,7 @@ const createPaymentOrder = asyncHandler(async (req,res) => {
     roundUpMargin,
     platformEarning,
     pricingVersion,
-  } = calculateFees(
-    service.price
-  );
+  } = calculateFees(effectivePrice);
 
   //  Create Razorpay Order
   const razorpayInstance = getRazorpayInstance();
@@ -318,6 +378,7 @@ const rejectCompletion = asyncHandler(async (req, res) => {
 });
 
 export {
+  checkGatewayStatus,
     createPaymentOrder,
   verifyPayment,
   acceptCompletion,
