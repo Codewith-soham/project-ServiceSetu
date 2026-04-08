@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { providerApi } from '../services/apiClient.js';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
-import { ArrowLeft, User, Briefcase, DollarSign, Clock, ShieldCheck, Mail, Phone, MapPin, Lock } from 'lucide-react';
+import { ArrowLeft, User, Briefcase, BadgeIndianRupee, Clock, ShieldCheck, Mail, Phone, MapPin, Lock } from 'lucide-react';
 
 const SignUpPage: React.FC = () => {
   const navigate = useNavigate();
@@ -317,7 +317,7 @@ const SignUpPage: React.FC = () => {
                       label="Pricing per hour (₹)"
                       placeholder="500"
                       type="number"
-                      icon={<DollarSign size={18} className="text-white/40" />}
+                      icon={<BadgeIndianRupee size={18} className="text-white/40" />}
                       required={isProvider}
                       value={formData.pricing}
                       onChange={(e) => setFormData({ ...formData, pricing: e.target.value })}

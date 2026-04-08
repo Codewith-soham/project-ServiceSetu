@@ -7,7 +7,7 @@ import {
   Clock, 
   User, 
   Calendar, 
-  DollarSign,
+  BadgeIndianRupee,
   ClipboardList
 } from 'lucide-react';
 import Card from '../../components/ui/Card';
@@ -170,7 +170,7 @@ const ProviderDashboard: React.FC = () => {
                   <span>{new Date(booking.bookingDate).toLocaleDateString()}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-[#9CA3AF]">
-                  <DollarSign size={14} />
+                  <BadgeIndianRupee size={14} />
                   <span>Base: ₹{booking.price} | Earnings: <span className="text-green-500 font-bold">₹{Number(booking.providerAmount || 0).toFixed(2)}</span></span>
                 </div>
               </div>
