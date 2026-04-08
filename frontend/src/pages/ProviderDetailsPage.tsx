@@ -8,6 +8,15 @@ import { providerApi, reviewApi } from '../services/apiClient';
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop';
 
+type ProviderPackage = {
+  id: string;
+  name: string;
+  price: number;
+  basePrice?: number;
+  time: string;
+  features: string[];
+};
+
 const buildDefaultPackages = (provider: any) => {
   const basePrice = Number(provider?.price ?? 0);
   const safePrice = Number.isFinite(basePrice) && basePrice > 0 ? basePrice : 500;
@@ -17,6 +26,7 @@ const buildDefaultPackages = (provider: any) => {
       id: `pkg-basic-${provider?.id || 'default'}`,
       name: 'Standard Visit',
       price: safePrice,
+      basePrice: safePrice,
       time: '1-2 hrs',
       features: [
         'On-site inspection',
@@ -129,6 +139,8 @@ const ProviderDetailsPage: React.FC = () => {
     return <div className="p-32 text-center text-3xl font-bold">Provider Not Found</div>;
   }
 
+  const packages = provider.packages as ProviderPackage[];
+
   const handleBooking = (pkg: any) => {
     if (!isAuthenticated) {
       navigate('/login');
@@ -230,7 +242,7 @@ const ProviderDetailsPage: React.FC = () => {
               <div className="space-y-8">
                 <h3 className="text-2xl font-bold ml-2">Choose a Service Package</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  {provider.packages.map((pkg) => (
+                  {packages.map((pkg: ProviderPackage) => (
                     <Card key={pkg.id} className="p-8 flex flex-col space-y-6 relative overflow-hidden group blue-glow-hover">
                       <div className="absolute top-0 right-0 w-24 h-24 bg-[#2563EB]/5 rounded-bl-[100px] -z-10 group-hover:bg-[#2563EB]/10 transition-colors" />
                       
@@ -246,10 +258,10 @@ const ProviderDetailsPage: React.FC = () => {
                       </div>
 
                       <ul className="space-y-3 flex-grow">
-                        {pkg.features.map((f, i) => (
-                          <li key={i} className="flex items-center gap-3 text-sm text-[#9CA3AF]">
+                        {pkg.features.map((feature: string, index: number) => (
+                          <li key={index} className="flex items-center gap-3 text-sm text-[#9CA3AF]">
                             <div className="w-1.5 h-1.5 rounded-full bg-[#2563EB]" />
-                            {f}
+                            {feature}
                           </li>
                         ))}
                       </ul>

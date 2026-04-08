@@ -30,6 +30,8 @@ const BookingPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { provider, package: pkg } = location.state || {};
+  const basePrice = Number(pkg?.basePrice ?? pkg?.price ?? provider?.price ?? 0);
+  const packagePrice = Number(pkg?.price ?? basePrice);
   
   const [bookingData, setBookingData] = useState({
     date: '',
@@ -218,12 +220,16 @@ const BookingPage: React.FC = () => {
                   <span className="text-white font-bold">{pkg.time}</span>
                 </div>
                 <div className="flex justify-between text-sm pt-4 border-t border-white/10">
-                  <span className="text-[#9CA3AF]">Subtotal</span>
-                  <span className="text-white font-bold">₹{pkg.price}</span>
+                  <span className="text-[#9CA3AF]">Base Value</span>
+                  <span className="text-white font-bold">₹{basePrice}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-[#9CA3AF]">Package Price</span>
+                  <span className="text-white font-bold">₹{packagePrice}</span>
                 </div>
                 <div className="flex justify-between text-xl pt-4 border-t border-white/10 text-[#2563EB] font-black">
                   <span>Total</span>
-                  <span>₹{pkg.price}</span>
+                  <span>₹{packagePrice}</span>
                 </div>
               </div>
 
