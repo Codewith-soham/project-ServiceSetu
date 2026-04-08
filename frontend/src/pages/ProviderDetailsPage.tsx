@@ -4,7 +4,7 @@ import { Star, MapPin, CheckCircle, ShieldCheck, Clock, ArrowLeft, MessageSquare
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
-import { providerApi } from '../services/apiClient';
+import { providerApi, reviewApi } from '../services/apiClient';
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop';
 
@@ -30,12 +30,16 @@ const buildDefaultPackages = (provider: any) => {
 const ProviderDetailsPage: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [provider, setProvider] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('packages');
   const [msgSent, setMsgSent] = useState(false);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsError, setReviewsError] = useState<string | null>(null);
+  const canShowReviewInfo = user?.role !== 'provider';
 
   useEffect(() => {
     const fetchProvider = async () => {
@@ -86,6 +90,34 @@ const ProviderDetailsPage: React.FC = () => {
 
     fetchProvider();
   }, [id]);
+
+  useEffect(() => {
+    const fetchReviews = async () => {
+      if (!id || activeTab !== 'reviews' || !canShowReviewInfo) {
+        return;
+      }
+
+      if (!isAuthenticated) {
+        setReviewsError('Login as a customer to view reviews.');
+        setReviews([]);
+        return;
+      }
+
+      try {
+        setReviewsLoading(true);
+        setReviewsError(null);
+        const response = await reviewApi.getProviderReviews(id, 1, 10);
+        setReviews(Array.isArray(response?.data?.data) ? response.data.data : []);
+      } catch (err: any) {
+        setReviews([]);
+        setReviewsError(err?.message || 'Failed to load reviews');
+      } finally {
+        setReviewsLoading(false);
+      }
+    };
+
+    fetchReviews();
+  }, [activeTab, id, isAuthenticated, canShowReviewInfo]);
 
   if (loading) {
     return (
@@ -139,11 +171,13 @@ const ProviderDetailsPage: React.FC = () => {
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-6 text-[#9CA3AF]">
-                  <span className="flex items-center gap-2 text-sm font-medium">
-                    <Star size={16} className="text-yellow-400 fill-yellow-400" />
-                    <span className="text-white font-bold">{provider.rating}</span>
-                    <span className="text-xs">({provider.reviews} Reviews)</span>
-                  </span>
+                  {canShowReviewInfo && (
+                    <span className="flex items-center gap-2 text-sm font-medium">
+                      <Star size={16} className="text-yellow-400 fill-yellow-400" />
+                      <span className="text-white font-bold">{provider.rating}</span>
+                      <span className="text-xs">({provider.reviews} Reviews)</span>
+                    </span>
+                  )}
                   <span className="flex items-center gap-2 text-sm font-medium">
                     <MapPin size={16} className="text-[#2563EB]" />
                     {provider.location}
@@ -156,7 +190,7 @@ const ProviderDetailsPage: React.FC = () => {
               </div>
               
               <div className="flex gap-4">
-                {['About', 'Packages', 'Reviews'].map((tab) => (
+                {(canShowReviewInfo ? ['About', 'Packages', 'Reviews'] : ['About', 'Packages']).map((tab) => (
                   <button 
                     key={tab}
                     onClick={() => setActiveTab(tab.toLowerCase())}
@@ -230,12 +264,46 @@ const ProviderDetailsPage: React.FC = () => {
             )}
 
             {activeTab === 'reviews' && (
-              <div className="glass p-12 rounded-[30px] text-center space-y-4">
-                <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Star size={40} className="text-yellow-400 fill-yellow-400" />
-                </div>
+              <div className="glass p-10 rounded-[30px] space-y-6">
                 <h3 className="text-2xl font-bold">Client Testimonials</h3>
-                <p className="text-[#9CA3AF]">Reviews for {provider.name} are coming soon!</p>
+
+                {reviewsLoading && (
+                  <p className="text-[#9CA3AF]">Loading reviews...</p>
+                )}
+
+                {!reviewsLoading && reviewsError && (
+                  <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                    {reviewsError}
+                  </div>
+                )}
+
+                {!reviewsLoading && !reviewsError && reviews.length === 0 && (
+                  <p className="text-[#9CA3AF]">No reviews yet for this provider.</p>
+                )}
+
+                {!reviewsLoading && !reviewsError && reviews.length > 0 && (
+                  <div className="space-y-4">
+                    {reviews.map((review) => (
+                      <Card key={review._id} className="p-5 border border-white/5 space-y-3">
+                        <div className="flex items-center justify-between gap-4">
+                          <p className="text-white font-semibold">{review?.user?.fullname || 'Customer'}</p>
+                          <div className="flex items-center gap-1">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <Star
+                                key={star}
+                                size={14}
+                                className={star <= Number(review.rating) ? 'text-yellow-400 fill-yellow-400' : 'text-[#4B5563]'}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        {review?.comment && (
+                          <p className="text-sm text-[#9CA3AF]">{review.comment}</p>
+                        )}
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </section>
@@ -246,17 +314,21 @@ const ProviderDetailsPage: React.FC = () => {
           <Card className="p-10 flex flex-col items-center text-center space-y-8 glass-dark sticky top-32">
             <h3 className="text-2xl font-bold">Work with {provider.name.split(' ')[0]}</h3>
             <div className="w-full space-y-4 py-8 border-y border-white/5">
-              <div className="flex justify-between items-center px-4">
-                <span className="text-[#9CA3AF] text-sm">Rating</span>
-                <span className="text-white font-bold flex items-center gap-2">
-                  <Star size={16} className="text-yellow-400 fill-yellow-400" />
-                  {provider.rating}
-                </span>
-              </div>
-              <div className="flex justify-between items-center px-4">
-                <span className="text-[#9CA3AF] text-sm">Reviews</span>
-                <span className="text-white font-bold">{provider.reviews}</span>
-              </div>
+              {canShowReviewInfo && (
+                <>
+                  <div className="flex justify-between items-center px-4">
+                    <span className="text-[#9CA3AF] text-sm">Rating</span>
+                    <span className="text-white font-bold flex items-center gap-2">
+                      <Star size={16} className="text-yellow-400 fill-yellow-400" />
+                      {provider.rating}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center px-4">
+                    <span className="text-[#9CA3AF] text-sm">Reviews</span>
+                    <span className="text-white font-bold">{provider.reviews}</span>
+                  </div>
+                </>
+              )}
               <div className="flex justify-between items-center px-4">
                 <span className="text-[#9CA3AF] text-sm">Pricing</span>
                 <span className="text-[#2563EB] font-bold text-lg">{provider.pricing}</span>

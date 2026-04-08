@@ -11,13 +11,16 @@ import {
   Edit3,
   CheckCircle2,
   XCircle,
-  Clock
+  Clock,
+  Star
 } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { services } from '../../data/mockData';
-import { userApi } from '../../services/apiClient';
+import { bookingApi, userApi } from '../../services/apiClient';
+import ServiceIcon from '../../components/ui/ServiceIcon';
+import ReviewModal from '../../components/ui/ReviewModal';
 
 const UserDashboard: React.FC = () => {
   const { user, logout, updateProfile } = useAuth();
@@ -27,6 +30,8 @@ const UserDashboard: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [searchService, setSearchService] = useState('');
   const [bookings, setBookings] = useState<any[]>([]);
+  const [reviewTarget, setReviewTarget] = useState<any | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [profileData, setProfileData] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -34,39 +39,40 @@ const UserDashboard: React.FC = () => {
     location: user?.location || ''
   });
 
+  const fetchDashboardData = async (isCancelled: () => boolean = () => false) => {
+    try {
+      const response = await userApi.getDashboard();
+
+      const mappedBookings = (response?.data?.data || []).map((b: any) => {
+        const bDate = new Date(b.bookingDate);
+        const providerId = b.provider?._id || b.provider?.id || '';
+
+        return {
+          id: b._id,
+          providerId: String(providerId),
+          provider: b.provider?.user?.fullname || 'Provider',
+          service: b.provider?.serviceType || 'Service',
+          date: bDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
+          time: bDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          amount: `₹${b.price || 0}`,
+          rawStatus: b.status,
+          status: mapApiStatusToUI(b.status)
+        };
+      });
+
+      if (!isCancelled()) {
+        setBookings(mappedBookings);
+      }
+    } catch {
+      if (!isCancelled()) {
+        setBookings([]);
+      }
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
-
-    const fetchDashboardData = async () => {
-      try {
-        const response = await userApi.getDashboard();
-        
-        // Maps backend Booking model to the mock format expected by JSX
-        const mappedBookings = (response?.data?.data || []).map((b: any) => {
-          const bDate = new Date(b.bookingDate);
-          return {
-            id: b._id,
-            provider: b.provider?.user?.fullname || 'Provider',
-            service: b.provider?.serviceType || 'Service',
-            date: bDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
-            time: bDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            amount: `₹${b.price || 0}`,
-            status: mapApiStatusToUI(b.status)
-          };
-        });
-        
-        if (!cancelled) {
-          setBookings(mappedBookings);
-        }
-      } catch {
-        if (!cancelled) {
-          setBookings([]);
-        }
-      }
-    };
-
-    fetchDashboardData();
-
+    fetchDashboardData(() => cancelled);
     return () => {
       cancelled = true;
     };
@@ -76,7 +82,8 @@ const UserDashboard: React.FC = () => {
     const s = status?.toLowerCase();
     if (['pending', 'awaiting_payment'].includes(s)) return 'Pending';
     if (s === 'accepted') return 'Accepted';
-    if (['service_completed_by_provider', 'completed'].includes(s)) return 'Completed';
+    if (s === 'service_completed_by_provider') return 'Awaiting Confirmation';
+    if (s === 'completed') return 'Completed';
     if (['cancelled_by_user', 'rejected_by_provider'].includes(s)) return 'Cancelled';
     return 'Pending';
   };
@@ -94,7 +101,24 @@ const UserDashboard: React.FC = () => {
 
   const handleCancelBooking = (bookingId: string) => {
     if (window.confirm('Are you sure you want to cancel this booking?')) {
-      setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'Cancelled' } : b));
+      bookingApi.cancelBooking(bookingId)
+        .then(() => {
+          setActionMessage('Booking cancelled successfully.');
+          fetchDashboardData();
+        })
+        .catch((err: any) => {
+          setActionMessage(err?.message || 'Failed to cancel booking.');
+        });
+    }
+  };
+
+  const handleConfirmCompletion = async (bookingId: string) => {
+    try {
+      await bookingApi.confirmCompletion(bookingId);
+      setActionMessage('Service completion confirmed. You can now rate the provider.');
+      await fetchDashboardData();
+    } catch (err: any) {
+      setActionMessage(err?.message || 'Failed to confirm completion.');
     }
   };
 
@@ -147,7 +171,7 @@ const UserDashboard: React.FC = () => {
                   onClick={() => navigate(`/providers?service=${service.id}`)}
                 >
                   <div className={`w-12 h-12 ${service.bg} rounded-xl flex items-center justify-center border border-white/5`}>
-                    <div className={`${service.color} text-xs font-bold uppercase`}>ICON</div>
+                    <ServiceIcon icon={service.icon} size={24} className={service.color} />
                   </div>
                   <h3 className="font-bold">{service.name}</h3>
                   <div className="pt-2">
@@ -161,6 +185,11 @@ const UserDashboard: React.FC = () => {
 
         {activeTab === 'bookings' && (
           <Card className="p-0 overflow-hidden border border-white/5">
+            {actionMessage && (
+              <div className="mx-8 mt-6 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-300">
+                {actionMessage}
+              </div>
+            )}
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="bg-[#111827] border-b border-white/5">
@@ -187,11 +216,13 @@ const UserDashboard: React.FC = () => {
                       <td className="px-8 py-6 text-sm font-black text-white">{booking.amount}</td>
                       <td className="px-8 py-6">
                         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${booking.status === 'Completed' ? 'bg-green-500/10 text-green-500' :
+                          booking.status === 'Awaiting Confirmation' ? 'bg-purple-500/10 text-purple-400' :
                           booking.status === 'Accepted' ? 'bg-blue-500/10 text-blue-500' :
                           booking.status === 'Pending' ? 'bg-yellow-500/10 text-yellow-500' :
                             'bg-red-500/10 text-red-500'
                           }`}>
                           {booking.status === 'Completed' && <CheckCircle2 size={10} />}
+                          {booking.status === 'Awaiting Confirmation' && <Clock size={10} />}
                           {booking.status === 'Accepted' && <Clock size={10} />}
                           {booking.status === 'Pending' && <Clock size={10} />}
                           {booking.status === 'Cancelled' && <XCircle size={10} />}
@@ -205,6 +236,29 @@ const UserDashboard: React.FC = () => {
                             className="text-[10px] font-black uppercase tracking-widest text-red-500 hover:text-red-400 transition-colors bg-red-500/5 px-3 py-1.5 rounded-lg border border-red-500/20"
                           >
                             Cancel
+                          </button>
+                        )}
+                        {booking.status === 'Awaiting Confirmation' && (
+                          <button
+                            onClick={() => handleConfirmCompletion(booking.id)}
+                            className="text-[10px] font-black uppercase tracking-widest text-purple-300 hover:text-purple-200 transition-colors bg-purple-500/10 px-3 py-1.5 rounded-lg border border-purple-500/30"
+                          >
+                            Confirm Completion
+                          </button>
+                        )}
+                        {booking.status === 'Completed' && (
+                          <button
+                            onClick={() =>
+                              setReviewTarget({
+                                bookingId: booking.id,
+                                providerId: booking.providerId,
+                                providerName: booking.provider,
+                              })
+                            }
+                            className="text-[10px] font-black uppercase tracking-widest text-[#2563EB] hover:text-[#3B82F6] transition-colors bg-[#2563EB]/10 px-3 py-1.5 rounded-lg border border-[#2563EB]/30 inline-flex items-center gap-1.5"
+                          >
+                            <Star size={10} className="text-yellow-400 fill-yellow-400" />
+                            Rate Provider
                           </button>
                         )}
                       </td>
@@ -287,6 +341,18 @@ const UserDashboard: React.FC = () => {
           </div>
         )}
       </div>
+
+      <ReviewModal
+        isOpen={Boolean(reviewTarget)}
+        bookingId={reviewTarget?.bookingId || ''}
+        providerId={reviewTarget?.providerId || ''}
+        providerName={reviewTarget?.providerName || 'Provider'}
+        onClose={() => setReviewTarget(null)}
+        onSuccess={() => {
+          setActionMessage('Thank you. Your review has been submitted.');
+          fetchDashboardData();
+        }}
+      />
     </div>
   );
 };

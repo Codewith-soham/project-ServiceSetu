@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
-import { Search, Filter, Star, ChevronRight } from 'lucide-react';
+import { Search, Filter, ChevronRight } from 'lucide-react';
 import { services } from '../data/mockData';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import Input from '../components/ui/Input';
 import { useAuth } from '../context/AuthContext';
+import ServiceIcon from '../components/ui/ServiceIcon';
 
 const ServicesPage: React.FC = () => {
   const navigate = useNavigate();
@@ -109,7 +109,7 @@ const ServicesPage: React.FC = () => {
                 onClick={() => navigate(isAuthenticated ? `/providers?service=${service.id}` : '/login')}
               >
                 <div className={`w-14 h-14 ${service.bg} rounded-xl flex items-center justify-center mb-6 border border-white/5 group-hover:scale-110 transition-transform`}>
-                  <div className={service.color}>Icon</div> {/* Replace with actual icons if needed */}
+                  <ServiceIcon icon={service.icon} size={28} className={service.color} />
                 </div>
                 <h3 className="text-xl font-bold mb-2 group-hover:text-[#2563EB] transition-colors">{service.name}</h3>
                 <p className="text-[#9CA3AF] text-sm leading-relaxed mb-6 line-clamp-2">
@@ -122,7 +122,6 @@ const ServicesPage: React.FC = () => {
               </Card>
             ))}
           </div>
-                onClick={() => navigate(isAuthenticated ? `/providers?service=${service.id}` : '/login')}
           {filteredServices.length === 0 && (
             <div className="py-20 text-center space-y-4">
               <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6">

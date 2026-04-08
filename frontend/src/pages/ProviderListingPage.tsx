@@ -56,6 +56,7 @@ const ProviderListingPage: React.FC = () => {
   const filteredProviders = serviceId
     ? providersData.filter((p) => p.serviceType === serviceId)
     : providersData;
+  const hideReviewInfo = user?.role === 'provider';
 
   return (
     <div className="flex flex-col w-full animate-fade-in py-12 px-8 md:px-16 container mx-auto">
@@ -103,10 +104,12 @@ const ProviderListingPage: React.FC = () => {
                 alt={provider.name} 
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
               />
-              <div className="absolute top-4 right-4 glass px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-xl">
-                <Star size={14} className="text-yellow-400 fill-yellow-400" />
-                <span className="text-sm font-bold text-white">{provider.rating}</span>
-              </div>
+              {!hideReviewInfo && (
+                <div className="absolute top-4 right-4 glass px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-xl">
+                  <Star size={14} className="text-yellow-400 fill-yellow-400" />
+                  <span className="text-sm font-bold text-white">{provider.rating}</span>
+                </div>
+              )}
             </div>
 
             <div className="p-8 space-y-6 flex-grow flex flex-col">
@@ -122,10 +125,12 @@ const ProviderListingPage: React.FC = () => {
                     <MapPin size={14} />
                     {provider.location || 'Location unavailable'}
                   </span>
-                  <span className="flex items-center gap-1.5">
-                    <Star size={14} className="text-[#2563EB]" />
-                    {provider.totalReviews ?? 0} Reviews
-                  </span>
+                  {!hideReviewInfo && (
+                    <span className="flex items-center gap-1.5">
+                      <Star size={14} className="text-[#2563EB]" />
+                      {provider.totalReviews ?? 0} Reviews
+                    </span>
+                  )}
                 </div>
               </div>
 

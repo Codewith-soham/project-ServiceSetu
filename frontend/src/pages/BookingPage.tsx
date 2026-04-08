@@ -4,7 +4,9 @@ import { Calendar, Clock, MapPin, FileEdit, ArrowLeft, ShieldCheck } from 'lucid
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
-import { paymentApi } from '../services/apiClient';
+import { bookingApi } from '../services/apiClient';
+
+const TEMP_DISABLE_RAZORPAY = true;
 
 const TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
   const totalMinutes = index * 30;
@@ -12,13 +14,13 @@ const TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
   const minute = totalMinutes % 60;
   const period = hour24 >= 12 ? 'PM' : 'AM';
   const hour12 = hour24 % 12 || 12;
+  const paddedHour24 = String(hour24).padStart(2, '0');
   const paddedHour = String(hour12).padStart(2, '0');
   const paddedMinute = String(minute).padStart(2, '0');
 
   return {
-    value: `${paddedHour}:${paddedMinute}`,
+    value: `${paddedHour24}:${paddedMinute}`,
     label: `${hour12}:${paddedMinute} ${period}`,
-    period,
   };
 });
 
@@ -32,7 +34,6 @@ const BookingPage: React.FC = () => {
   const [bookingData, setBookingData] = useState({
     date: '',
     time: '09:00',
-    period: 'AM',
     address: '',
     notes: ''
   });
@@ -50,20 +51,12 @@ const BookingPage: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      if (!bookingData.date || !bookingData.time || !bookingData.period) {
+      if (!bookingData.date || !bookingData.time) {
         throw new Error('Please select both date and time');
       }
 
       const [year, month, day] = bookingData.date.split('-').map(Number);
       let [hours, minutes] = bookingData.time.split(':').map(Number);
-
-      if (bookingData.period === 'PM' && hours !== 12) {
-        hours += 12;
-      }
-
-      if (bookingData.period === 'AM' && hours === 12) {
-        hours = 0;
-      }
 
       const localDate = new Date(year, (month || 1) - 1, day, hours, minutes, 0, 0);
       if (Number.isNaN(localDate.getTime())) {
@@ -78,25 +71,22 @@ const BookingPage: React.FC = () => {
         address: bookingData.address,
       };
 
-      const response = await paymentApi.createOrder(payload);
-      
-      const bookingId = response?.data?._id || response?.data?.id;
-      const responseBookingId = response?.data?.bookingId || bookingId;
-      if (!responseBookingId) {
-        throw new Error('Failed to retrieve booking ID from response');
-      }
-
-      setSuccessMessage('Order created. Redirecting to secure payment.');
-      navigate('/payment', {
-        state: {
-          bookingId: responseBookingId,
-          provider,
-          package: pkg,
-          order: response?.data,
-          bookingDate,
-          address: bookingData.address,
+      if (TEMP_DISABLE_RAZORPAY) {
+        const response = await bookingApi.createBooking(payload);
+        const responseBookingId = response?.data?._id || response?.data?.id;
+        if (!responseBookingId) {
+          throw new Error('Failed to create booking');
         }
-      });
+
+        setSuccessMessage('Booking created successfully. You can now check provider pending requests.');
+        navigate('/user/dashboard?tab=bookings', {
+          state: {
+            bookingSuccess: true,
+            bookingId: responseBookingId,
+          },
+        });
+        return;
+      }
     } catch (err: any) {
       console.error('Booking failed:', err);
       setError(err.message || 'Something went wrong. Please try again.');

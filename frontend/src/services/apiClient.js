@@ -242,6 +242,18 @@ export const bookingApi = {
     });
   },
 
+  async cancelBooking(bookingId) {
+    return request(`/bookings/${encodeURIComponent(bookingId)}/cancel`, {
+      method: "PATCH",
+    });
+  },
+
+  async confirmCompletion(bookingId) {
+    return request(`/bookings/${encodeURIComponent(bookingId)}/confirm-completion`, {
+      method: "PATCH",
+    });
+  },
+
   /**
    * Provider marks service completed (CONTRACT: POST).
    * @param {string} bookingId
@@ -266,6 +278,12 @@ export const bookingApi = {
 };
 
 export const paymentApi = {
+  async getGatewayStatus() {
+    return request("/payments/status", {
+      method: "GET",
+    });
+  },
+
   /**
   * CONTRACT: POST /payments/create-order body is { providerId, bookingDate, note?, address? }.
   * @param {{ providerId: string, bookingDate: string, note?: string, address?: string }} orderPayload
@@ -294,6 +312,24 @@ export const userApi = {
     params.set("page", "1");
     params.set("limit", "10");
     return request(`/bookings/user-bookings?${params.toString()}`, {
+      method: "GET",
+    });
+  },
+};
+
+export const reviewApi = {
+  async addReview(providerId, bookingId, rating, comment = "") {
+    return request("/reviews", {
+      method: "POST",
+      body: JSON.stringify({ providerId, bookingId, rating, comment }),
+    });
+  },
+
+  async getProviderReviews(providerId, page = 1, limit = 10) {
+    const params = new URLSearchParams();
+    params.set("page", String(page));
+    params.set("limit", String(limit));
+    return request(`/reviews/${encodeURIComponent(providerId)}?${params.toString()}`, {
       method: "GET",
     });
   },

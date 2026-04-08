@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { Search, MapPin, Star, Zap, Droplets, SprayCan, Wrench } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
+import ServiceIcon from '../components/ui/ServiceIcon';
 import { useAuth } from '../context/AuthContext';
 import { providerApi } from '../services/apiClient';
 
@@ -10,10 +11,11 @@ const DEFAULT_PROVIDER_IMAGE = 'https://images.unsplash.com/photo-1494790108377-
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [searchService, setSearchService] = useState('');
   const [searchLocation, setSearchLocation] = useState('');
   const [featuredProviders, setFeaturedProviders] = useState<any[]>([]);
+  const hideReviewInfo = user?.role === 'provider';
 
   useEffect(() => {
     const fetchFeaturedProviders = async () => {
@@ -113,7 +115,7 @@ const HomePage: React.FC = () => {
               className="flex flex-col items-center text-center py-10 group"
             >
               <div className={`w-16 h-16 ${service.bg} rounded-2xl flex items-center justify-center mb-6 border border-white/5 group-hover:scale-110 transition-transform duration-300`}>
-                <service.icon className={service.color} size={32} />
+                <ServiceIcon icon={service.icon} className={service.color} size={32} />
               </div>
               <h3 className="text-xl font-semibold mb-2">{service.name}</h3>
               <p className="text-[#9CA3AF] text-sm leading-relaxed">
@@ -141,16 +143,22 @@ const HomePage: React.FC = () => {
                     alt={provider.name || 'Provider'}
                     className="w-full h-full object-cover"
                   />
-                  <div className="absolute top-4 right-4 glass px-3 py-1 rounded-full flex items-center gap-1">
-                    <Star size={14} className="text-yellow-400 fill-yellow-400" />
-                    <span className="text-xs font-bold text-white">{provider.rating ?? 0}</span>
-                  </div>
+                  {!hideReviewInfo && (
+                    <div className="absolute top-4 right-4 glass px-3 py-1 rounded-full flex items-center gap-1">
+                      <Star size={14} className="text-yellow-400 fill-yellow-400" />
+                      <span className="text-xs font-bold text-white">{provider.rating ?? 0}</span>
+                    </div>
+                  )}
                 </div>
                 <div className="p-6">
                   <h3 className="text-xl font-bold mb-1">{provider.name || 'Service Provider'}</h3>
                   <p className="text-[#2563EB] text-sm font-medium mb-4">{provider.service || provider.serviceType || 'General Service'}</p>
                   <div className="flex justify-between items-center pt-6 border-t border-white/5">
-                    <span className="text-[#4B5563] text-xs uppercase tracking-wider font-bold">{provider.totalReviews ?? 0} Reviews</span>
+                    {!hideReviewInfo ? (
+                      <span className="text-[#4B5563] text-xs uppercase tracking-wider font-bold">{provider.totalReviews ?? 0} Reviews</span>
+                    ) : (
+                      <span className="text-[#4B5563] text-xs uppercase tracking-wider font-bold">Verified Provider</span>
+                    )}
                     <Button 
                       size="sm" 
                       variant="outline" 

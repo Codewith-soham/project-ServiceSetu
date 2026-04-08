@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
-import { ArrowLeft, BadgeIndianRupee, CircleCheck, ReceiptText, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, BadgeIndianRupee, ReceiptText } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { paymentApi } from '../services/apiClient';
@@ -125,8 +125,8 @@ const PaymentPage: React.FC = () => {
 
   return (
     <div className="min-h-[80vh] p-8 animate-fade-in">
-      <div className="container mx-auto max-w-5xl grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <Card className="lg:col-span-2 p-8 md:p-10 space-y-8 glass blue-glow">
+      <div className="container mx-auto max-w-3xl">
+        <Card className="p-8 md:p-10 space-y-8 glass blue-glow">
           <div className="flex items-center gap-3 text-sm text-[#9CA3AF]">
             <ReceiptText size={18} className="text-[#2563EB]" />
             Professional invoice preview before payment
@@ -172,22 +172,6 @@ const PaymentPage: React.FC = () => {
               <BadgeIndianRupee size={16} />
               {isPaying ? 'Opening Razorpay...' : 'Pay Securely'}
             </Button>
-          </div>
-        </Card>
-
-        <Card className="p-8 space-y-5 glass">
-          <div className="flex items-center gap-3">
-            <ShieldCheck className="text-green-500" size={20} />
-            <p className="font-semibold">Payout Guarantee</p>
-          </div>
-          <div className="rounded-xl border border-green-500/30 bg-green-500/10 p-4">
-            <p className="text-xs uppercase tracking-widest text-green-400">Provider receives</p>
-            <p className="text-2xl font-black text-green-400">₹{bill.providerPayout.toFixed(2)}</p>
-          </div>
-          <div className="text-sm text-[#9CA3AF] space-y-3">
-            <p className="flex items-start gap-2"><CircleCheck size={16} className="text-green-500 mt-0.5" />Transparent invoice with itemized charges</p>
-            <p className="flex items-start gap-2"><CircleCheck size={16} className="text-green-500 mt-0.5" />Provider payout protected from fee fluctuations</p>
-            <p className="flex items-start gap-2"><CircleCheck size={16} className="text-green-500 mt-0.5" />Adaptive pricing policy supports growth</p>
           </div>
         </Card>
       </div>
