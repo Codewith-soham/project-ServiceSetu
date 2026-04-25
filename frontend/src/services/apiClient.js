@@ -40,8 +40,12 @@ async function request(path, init = {}) {
     headers.set("Content-Type", "application/json");
   }
 
+  const token = typeof window !== "undefined" ? localStorage.getItem("serviceSetu_accessToken") : null;
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
   const res = await fetch(url, {
-    credentials: "include",
     ...init,
     headers,
   });

@@ -62,16 +62,8 @@ const registerUser = asyncHandler(async (req, res) => {
         user.refreshToken = refreshToken;
         await user.save({ validateBeforeSave: false });
 
-        const cookieOptions = {
-            httpOnly: true,
-            sameSite: "lax",
-            secure: process.env.NODE_ENV === "production"
-        };
-
         return res
             .status(201)
-            .cookie("accessToken", accessToken, cookieOptions)
-            .cookie("refreshToken", refreshToken, cookieOptions)
             .json(new ApiResponse(201, {
                 user: {
                     id: createdUser._id,
@@ -79,7 +71,8 @@ const registerUser = asyncHandler(async (req, res) => {
                     fullname: createdUser.fullname,
                     role: createdUser.role
                 },
-                accessToken
+                accessToken,
+                refreshToken
             }, "User created and logged in successfully"));
     }
     catch(error) {
@@ -126,15 +119,8 @@ const loginUser = asyncHandler(async (req, res) => {
     user.refreshToken = refreshToken;
     await user.save({ validateBeforeSave: false });
 
-    const cookieOptions = {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production"
-    };
-
     return res
         .status(200)
-        .cookie("accessToken", accessToken, cookieOptions)
         .json(
             new ApiResponse(200, {
                 user: {
@@ -143,7 +129,8 @@ const loginUser = asyncHandler(async (req, res) => {
                     fullname: user.fullname,
                     role: user.role
                 },
-                accessToken
+                accessToken,
+                refreshToken
             }, "Login successful")
         );
 });
@@ -155,17 +142,8 @@ const logoutUser = asyncHandler(async (req, res) => {
     // Clear refreshToken in database
     await User.findByIdAndUpdate(userId, { refreshToken: "" });
 
-    // Clear cookies
-    const cookieOptions = {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production"
-    };
-
     return res
         .status(200)
-        .clearCookie("accessToken", cookieOptions)
-        .clearCookie("refreshToken", cookieOptions)
         .json(new ApiResponse(200, {}, "Logged out successfully"));
 });
 
@@ -206,17 +184,8 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     user.refreshToken = newRefreshToken;
     await user.save({ validateBeforeSave: false });
 
-    // Set cookies
-    const cookieOptions = {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production"
-    };
-
     return res
         .status(200)
-        .cookie("accessToken", accessToken, cookieOptions)
-        .cookie("refreshToken", newRefreshToken, cookieOptions)
         .json(new ApiResponse(200, {
             accessToken,
             refreshToken: newRefreshToken
