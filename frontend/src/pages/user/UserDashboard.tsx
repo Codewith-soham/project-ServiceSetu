@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -18,7 +18,8 @@ import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { services } from '../../data/mockData';
-import { bookingApi, userApi } from '../../services/apiClient';
+import { bookingApi, userApi, authApi } from '../../services/apiClient';
+import { createAuthenticatedSocket, SOCKET_EVENTS } from '../../services/socketClient';
 import ServiceIcon from '../../components/ui/ServiceIcon';
 import ReviewModal from '../../components/ui/ReviewModal';
 
@@ -39,7 +40,17 @@ const UserDashboard: React.FC = () => {
     location: user?.location || ''
   });
 
-  const fetchDashboardData = async (isCancelled: () => boolean = () => false) => {
+  // Sync profileData with user whenever user changes
+  useEffect(() => {
+    setProfileData({
+      name: user?.name || '',
+      email: user?.email || '',
+      phone: user?.phone || '',
+      location: user?.location || ''
+    });
+  }, [user]);
+
+  const fetchDashboardData = useCallback(async (isCancelled: () => boolean = () => false) => {
     try {
       const response = await userApi.getDashboard();
 
@@ -68,7 +79,7 @@ const UserDashboard: React.FC = () => {
         setBookings([]);
       }
     }
-  };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,7 +87,63 @@ const UserDashboard: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [fetchDashboardData]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+
+    const socket = createAuthenticatedSocket();
+    const handleBookingUpdated = () => {
+      fetchDashboardData();
+    };
+    const handleSocketError = () => {
+      // Keep silent in UI but log for debugging socket handshake issues.
+      console.warn('[user-dashboard] socket connect error; using polling fallback');
+    };
+
+    const pollingTimer = window.setInterval(() => {
+      fetchDashboardData();
+    }, 15000);
+
+    socket.on(SOCKET_EVENTS.BOOKING_UPDATED, handleBookingUpdated);
+    socket.on('connect_error', handleSocketError);
+    socket.connect();
+
+    return () => {
+      socket.off(SOCKET_EVENTS.BOOKING_UPDATED, handleBookingUpdated);
+      socket.off('connect_error', handleSocketError);
+      socket.disconnect();
+      window.clearInterval(pollingTimer);
+    };
+  }, [user?.id, fetchDashboardData]);
+
+  // Fetch and sync user profile data when profile tab is opened
+  useEffect(() => {
+    if (activeTab !== 'profile' || !user?.id) {
+      return;
+    }
+
+    const fetchUserProfile = async () => {
+      try {
+        const response = await authApi.getMe();
+        if (response?.data) {
+          const userData = response.data;
+          setProfileData({
+            name: userData.fullname || user.name || '',
+            email: userData.email || user.email || '',
+            phone: userData.phone || '',
+            location: userData.address || ''
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch user profile:', err);
+      }
+    };
+
+    fetchUserProfile();
+  }, [activeTab, user?.id]);
 
   const mapApiStatusToUI = (status: string) => {
     const s = status?.toLowerCase();

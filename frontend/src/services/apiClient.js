@@ -220,6 +220,19 @@ export const providerApi = {
       method: "GET",
     });
   },
+
+  async getPayoutDetails() {
+    return request("/providers/payout-details", {
+      method: "GET",
+    });
+  },
+
+  async updatePayoutDetails(payoutDetails) {
+    return request("/providers/payout-details", {
+      method: "PUT",
+      body: JSON.stringify(payoutDetails),
+    });
+  },
 };
 
 export const bookingApi = {
@@ -285,11 +298,33 @@ export const paymentApi = {
   },
 
   /**
+   * Server-side status check that queries Razorpay and (if captured/authorized)
+   * updates booking.paymentStatus to "paid".
+   * @param {string} bookingId
+   */
+  async getBookingPaymentStatus(bookingId) {
+    return request(`/payments/bookings/${encodeURIComponent(bookingId)}/status`, {
+      method: "GET",
+    });
+  },
+
+  /**
   * CONTRACT: POST /payments/create-order body is { providerId, bookingDate, note?, address? }.
   * @param {{ providerId: string, bookingDate: string, note?: string, address?: string }} orderPayload
    */
   async createOrder(orderPayload) {
     return request("/payments/create-order", {
+      method: "POST",
+      body: JSON.stringify(orderPayload),
+    });
+  },
+
+  /**
+   * QR scan-to-pay flow. Returns { bookingId, qrCodeId, qrImageUrl, ... }.
+   * @param {{ providerId: string, bookingDate: string, note?: string, address?: string }} orderPayload
+   */
+  async createQr(orderPayload) {
+    return request("/payments/create-qr", {
       method: "POST",
       body: JSON.stringify(orderPayload),
     });

@@ -6,7 +6,8 @@
   "main": "server.js",
   "scripts": {
     "test": "node test.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "start": "node server.js"
   },
   "author": "Soham Ghadge",
   "license": "ISC",
@@ -20,12 +21,15 @@
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "express-rate-limit": "^8.3.2",
+    "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.3",
+    "joi": "^17.11.0",
     "mongoose": "^9.2.1",
     "multer": "^2.1.1",
     "nodemon": "^3.1.11",
     "prettier": "^3.8.1",
     "razorpay": "^2.9.6",
-    "socket.io": "^4.8.3"
+    "socket.io": "^4.8.3",
+    "winston": "^3.11.0"
   }
 }

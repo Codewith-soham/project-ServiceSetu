@@ -18,12 +18,12 @@ const addReview = asyncHandler(async (req, res) => {
         throw new ApiError(404, "Provider not found");
     }
 
-    const existingReview = await Review.findOne({
+    const existingBookingReview = await Review.findOne({
         user: req.user._id,
-        provider: providerId
+        booking: bookingId,
     });
-    if (existingReview) {
-        throw new ApiError(400, "You have already reviewed this provider");
+    if (existingBookingReview) {
+        throw new ApiError(400, "You have already reviewed this booking");
     }
 
     const booking = await Booking.findOne({
@@ -49,9 +49,9 @@ const addReview = asyncHandler(async (req, res) => {
             comment: comment || ""
         });
     } catch (err) {
-        // Handle duplicate unique index errors gracefully (e.g., if a unique index exists on { user, provider }).
+        // Handle duplicate unique index errors gracefully.
         if (err?.code === 11000) {
-            throw new ApiError(400, "You have already reviewed this provider");
+            throw new ApiError(400, "You have already reviewed this booking");
         }
         throw err;
     }

@@ -13,7 +13,26 @@ const parseTokenFromCookie = (cookieHeader = "") => {
     .filter(Boolean);
 
   const accessTokenCookie = cookies.find((entry) => entry.startsWith("accessToken="));
-  return accessTokenCookie ? accessTokenCookie.split("=")[1] : null;
+  if (!accessTokenCookie) {
+    return null;
+  }
+
+  const tokenParts = accessTokenCookie.split("=");
+  tokenParts.shift();
+  return decodeURIComponent(tokenParts.join("="));
+};
+
+const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) {
+    return true;
+  }
+
+  return allowedOrigins.includes(origin);
 };
 
 const extractToken = (socket) => {
@@ -53,7 +72,13 @@ const removeUserSocket = (userId, socketId) => {
 const initializeSocket = (httpServer) => {
   io = new Server(httpServer, {
     cors: {
-      origin: process.env.CORS_ORIGIN || "http://localhost:5173",
+      origin: (origin, callback) => {
+        if (isAllowedOrigin(origin)) {
+          return callback(null, true);
+        }
+
+        return callback(new Error("Not allowed by Socket.IO CORS"));
+      },
       credentials: true
     }
   });
@@ -87,9 +112,11 @@ const initializeSocket = (httpServer) => {
 
     // Per-user room enables broadcast to all user devices.
     socket.join(`user:${userId}`);
+    console.log(`[Socket.IO] User ${userId} connected. Total active users: ${userSockets.size}`);
 
     socket.on("disconnect", () => {
       removeUserSocket(userId, socket.id);
+      console.log(`[Socket.IO] User ${userId} disconnected`);
     });
   });
 

@@ -9,6 +9,108 @@ import { getCoordinatesFromAddress } from "../utils/geocode.util.js";
 import mongoose from "mongoose";
 import { deleteCloudinaryAsset, uploadBufferToCloudinary } from "../utils/cloudinary.util.js";
 
+const maskAccountNumber = (accountNumber = "") => {
+    const value = String(accountNumber).trim();
+    if (!value) {
+        return "";
+    }
+
+    if (value.length <= 4) {
+        return value;
+    }
+
+    return `****${value.slice(-4)}`;
+};
+
+const getPayoutDetails = asyncHandler(async (req, res) => {
+    const provider = await ServiceProvider.findOne({ user: req.user._id }).lean();
+
+    if (!provider) {
+        throw new ApiError(404, "Provider profile not found");
+    }
+
+    const payoutDetails = provider.payoutDetails || {};
+
+    return res.status(200).json(
+        new ApiResponse(200, {
+            payoutDetails: {
+                accountHolderName: payoutDetails.accountHolderName || "",
+                accountNumber: maskAccountNumber(payoutDetails.accountNumber || ""),
+                ifscCode: payoutDetails.ifscCode || "",
+                bankName: payoutDetails.bankName || "",
+                upiId: payoutDetails.upiId || "",
+                preferredMethod: payoutDetails.preferredMethod || "bank",
+                isVerified: Boolean(payoutDetails.isVerified),
+                updatedAt: payoutDetails.updatedAt || null,
+            },
+        }, "Payout details retrieved successfully")
+    );
+});
+
+const updatePayoutDetails = asyncHandler(async (req, res) => {
+    const {
+        accountHolderName,
+        accountNumber,
+        ifscCode,
+        bankName,
+        upiId,
+        preferredMethod,
+    } = req.body;
+
+    const normalizedAccountHolderName = String(accountHolderName || "").trim();
+    const normalizedAccountNumber = String(accountNumber || "").trim();
+    const normalizedIfscCode = String(ifscCode || "").trim().toUpperCase();
+    const normalizedBankName = String(bankName || "").trim();
+    const normalizedUpiId = String(upiId || "").trim();
+    const normalizedPreferredMethod = String(preferredMethod || "bank").trim().toLowerCase();
+
+    if (!normalizedAccountHolderName || !normalizedAccountNumber || !normalizedIfscCode || !normalizedBankName) {
+        throw new ApiError(400, "Account holder name, account number, IFSC code, and bank name are required");
+    }
+
+    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(normalizedIfscCode)) {
+        throw new ApiError(400, "Invalid IFSC code");
+    }
+
+    if (normalizedPreferredMethod !== "bank" && normalizedPreferredMethod !== "upi") {
+        throw new ApiError(400, "Preferred payout method must be bank or upi");
+    }
+
+    const provider = await ServiceProvider.findOne({ user: req.user._id });
+
+    if (!provider) {
+        throw new ApiError(404, "Provider profile not found");
+    }
+
+    provider.payoutDetails = {
+        accountHolderName: normalizedAccountHolderName,
+        accountNumber: normalizedAccountNumber,
+        ifscCode: normalizedIfscCode,
+        bankName: normalizedBankName,
+        upiId: normalizedUpiId,
+        preferredMethod: normalizedPreferredMethod,
+        isVerified: false,
+        updatedAt: new Date(),
+    };
+
+    await provider.save();
+
+    return res.status(200).json(
+        new ApiResponse(200, {
+            payoutDetails: {
+                accountHolderName: provider.payoutDetails.accountHolderName,
+                accountNumber: maskAccountNumber(provider.payoutDetails.accountNumber),
+                ifscCode: provider.payoutDetails.ifscCode,
+                bankName: provider.payoutDetails.bankName,
+                upiId: provider.payoutDetails.upiId,
+                preferredMethod: provider.payoutDetails.preferredMethod,
+                isVerified: provider.payoutDetails.isVerified,
+                updatedAt: provider.payoutDetails.updatedAt,
+            },
+        }, "Payout details updated successfully")
+    );
+});
+
 const becomeProvider = asyncHandler(async (req, res) => {
 
     console.log("BODY: ", req.body);
@@ -249,5 +351,7 @@ export {
     becomeProvider,
     getProviderBookings,
     updateBookingStatusByProvider,
-    markServiceCompletedByProvider
+    markServiceCompletedByProvider,
+    getPayoutDetails,
+    updatePayoutDetails,
 };

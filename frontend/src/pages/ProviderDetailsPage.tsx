@@ -18,15 +18,15 @@ type ProviderPackage = {
 };
 
 const buildDefaultPackages = (provider: any) => {
-  const basePrice = Number(provider?.price ?? 0);
-  const safePrice = Number.isFinite(basePrice) && basePrice > 0 ? basePrice : 500;
+  const basePrice = Number(provider?.price ?? provider?.pricing ?? 0);
+  const hasBasePrice = Number.isFinite(basePrice) && basePrice > 0;
 
   return [
     {
       id: `pkg-basic-${provider?.id || 'default'}`,
       name: 'Standard Visit',
-      price: safePrice,
-      basePrice: safePrice,
+      price: hasBasePrice ? basePrice : null,
+      basePrice: hasBasePrice ? basePrice : null,
       time: '1-2 hrs',
       features: [
         'On-site inspection',
@@ -76,8 +76,8 @@ const ProviderDetailsPage: React.FC = () => {
           serviceType: apiProvider.serviceType || 'general',
           rating: apiProvider.rating ?? 0,
           reviews: apiProvider.totalReviews ?? 0,
-          price: apiProvider.price ?? null,
-          pricing: apiProvider.price ? `₹${apiProvider.price}` : 'Contact for pricing',
+          price: apiProvider.price ?? apiProvider.pricing ?? null,
+          pricing: apiProvider.price || apiProvider.pricing ? `₹${apiProvider.price ?? apiProvider.pricing}` : 'Contact for pricing',
           location: apiProvider.location || 'Location unavailable',
           experience: apiProvider.experience || 'N/A',
           bio:
@@ -140,6 +140,13 @@ const ProviderDetailsPage: React.FC = () => {
   }
 
   const packages = provider.packages as ProviderPackage[];
+  const formatPackagePrice = (value: number | null | undefined) => {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+      return 'Contact for pricing';
+    }
+
+    return `₹${value}`;
+  };
 
   const handleBooking = (pkg: any) => {
     if (!isAuthenticated) {
@@ -193,10 +200,6 @@ const ProviderDetailsPage: React.FC = () => {
                   <span className="flex items-center gap-2 text-sm font-medium">
                     <MapPin size={16} className="text-[#2563EB]" />
                     {provider.location}
-                  </span>
-                  <span className="flex items-center gap-2 text-sm font-medium">
-                    <CheckCircle size={16} className="text-green-500" />
-                    {provider.experience} Exp.
                   </span>
                 </div>
               </div>
@@ -254,7 +257,9 @@ const ProviderDetailsPage: React.FC = () => {
                             {pkg.time} Est.
                           </div>
                         </div>
-                        <div className="text-2xl font-bold text-[#2563EB] group-hover:scale-110 transition-transform">₹{pkg.price}</div>
+                        <div className="text-2xl font-bold text-[#2563EB] group-hover:scale-110 transition-transform">
+                          {formatPackagePrice(pkg.basePrice ?? pkg.price ?? provider.price ?? null)}
+                        </div>
                       </div>
 
                       <ul className="space-y-3 flex-grow">

@@ -8,6 +8,29 @@ import { Service } from "../models/service.model.js";
 import { sendNotification, NOTIFICATION_EVENTS } from "../socket/notification.js";
 import { calculateFees } from "../utils/razorpay.util.js";
 
+const emitBookingUpdateToParticipants = async (booking, action) => {
+    if (!booking?._id || !booking?.user || !booking?.provider) {
+        return;
+    }
+
+    const participants = new Set([String(booking.user)]);
+    const providerProfile = await ServiceProvider.findById(booking.provider).select("user").lean();
+    if (providerProfile?.user) {
+        participants.add(String(providerProfile.user));
+    }
+
+    const payload = {
+        bookingId: String(booking._id),
+        status: booking.status,
+        action,
+        updatedAt: new Date().toISOString()
+    };
+
+    for (const userId of participants) {
+        sendNotification(userId, "Booking updated", NOTIFICATION_EVENTS.BOOKING_UPDATED, payload);
+    }
+};
+
 const createBooking = asyncHandler(async (req, res) => {
     
     const { providerId, bookingDate, note, address } = req.body;
@@ -41,19 +64,19 @@ const createBooking = asyncHandler(async (req, res) => {
 
     const service = await Service.findOne({ serviceType: existingProvider.serviceType });
 
-    const startOfDay = new Date(bookingDateValue);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(bookingDateValue);
-    endOfDay.setHours(23, 59, 59, 999);
+    // Allow multiple bookings per day, but block collisions in the same 30-min slot.
+    const slotStart = new Date(bookingDateValue);
+    const slotEnd = new Date(bookingDateValue);
+    slotEnd.setMinutes(slotEnd.getMinutes() + 29, 59, 999);
 
     const existingBooking = await Booking.findOne({
         provider: providerId,
-        bookingDate: { $gte: startOfDay, $lte: endOfDay },
+        bookingDate: { $gte: slotStart, $lte: slotEnd },
         status: { $in: ["awaiting_payment", "pending", "accepted"] }
     });
 
     if (existingBooking) {
-        throw new ApiError(409, "Provider already has a booking on this date");
+        throw new ApiError(409, "Provider already has a booking at this time");
     }
 
     // Fallback for environments where Service seed data is missing.
@@ -88,6 +111,8 @@ const createBooking = asyncHandler(async (req, res) => {
         pricingVersion,
         status: "pending"
     });
+
+    await emitBookingUpdateToParticipants(booking, "created");
 
     res.status(201).json(
         new ApiResponse(201, booking, "Booking created successfully")
@@ -131,6 +156,7 @@ const markServiceCompletedByProvider = asyncHandler(async (req, res) => {
         "Service marked as completed",
         NOTIFICATION_EVENTS.SERVICE_COMPLETED
     );
+    await emitBookingUpdateToParticipants(booking, "marked_completed_by_provider");
 
     return res.status(200).json(
         new ApiResponse(200, booking, "Service marked as completed by provider")
@@ -145,11 +171,17 @@ const getProviderBookings = asyncHandler(async (req, res) => {
     }
 
     const bookings = await Booking.find({ provider: providerProfile._id })
-        .populate("user", "fullname email address")
-        .sort({ createdAt: -1 });
+        .populate("user", "fullname email address phone")
+        .sort({ createdAt: -1 })
+        .lean();
+
+    const normalizedBookings = bookings.map((booking) => ({
+        ...booking,
+        serviceAddress: booking.address || booking?.user?.address || ""
+    }));
 
     return res.status(200).json(
-        new ApiResponse(200, bookings, "Provider bookings fetched successfully")
+        new ApiResponse(200, normalizedBookings, "Provider bookings fetched successfully")
     );
 });
 
@@ -246,6 +278,7 @@ const acceptBooking = asyncHandler(async (req, res) => {
 
     booking.status = "accepted";
     await booking.save();
+    await emitBookingUpdateToParticipants(booking, "accepted_by_provider");
 
     return res.status(200).json(
         new ApiResponse(200, booking, "Booking accepted successfully")
@@ -275,6 +308,7 @@ const rejectBooking = asyncHandler(async (req, res) => {
 
     booking.status = "rejected_by_provider";
     await booking.save();
+    await emitBookingUpdateToParticipants(booking, "rejected_by_provider");
 
     return res.status(200).json(
         new ApiResponse(200, booking, "Booking rejected successfully")

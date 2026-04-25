@@ -69,9 +69,9 @@ const getNearbyProviders = asyncHandler(async (req, res) => {
     const providers = await ServiceProvider.find(nearFilter)
         .populate({
             path: "user",
-            select: "fullname"
+            select: "fullname address"
         })
-        .select("serviceType rating totalReviews location image")
+        .select("serviceType rating totalReviews location image pricing address")
         .skip(skip)
         .limit(limitNum)
         .lean();
@@ -89,9 +89,11 @@ const getNearbyProviders = asyncHandler(async (req, res) => {
         serviceType: provider.serviceType,
         rating: provider.rating,
         totalReviews: provider.totalReviews,
-        location: provider.location,
+        location: provider?.user?.address || provider?.address || "",
+        geoLocation: provider.location || null,
         image: provider.image || null,
-        price: priceByType.get(provider.serviceType) ?? null
+        price: priceByType.get(provider.serviceType) ?? provider.pricing ?? null,
+        pricing: provider.pricing ?? null
     }));
 
     res.status(200)

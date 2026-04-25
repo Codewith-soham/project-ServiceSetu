@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import Button from '../ui/Button';
 import {
   LayoutDashboard, Calendar, User as UserIcon, LogOut,
-  BarChart3, BookOpen, Wallet
+  BarChart3, BookOpen, Wallet, Landmark
 } from 'lucide-react';
 
 const Navbar: React.FC = () => {
@@ -36,6 +36,7 @@ const Navbar: React.FC = () => {
     { id: 'dashboard', label: 'Overview', icon: BarChart3 },
     { id: 'bookings', label: 'Bookings', icon: BookOpen },
     { id: 'earnings', label: 'Earnings', icon: Wallet },
+    { id: 'payouts', label: 'Payouts', icon: Landmark },
   ];
 
   const dashboardTabs = isOnProviderDashboard ? providerDashboardTabs : userDashboardTabs;

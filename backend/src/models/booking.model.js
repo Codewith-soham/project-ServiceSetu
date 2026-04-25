@@ -84,9 +84,40 @@ razorpaySignature: {
   type: String,
 },
 
+razorpayQrCodeId: {
+  type: String,
+},
+
+razorpayQrImageUrl: {
+  type: String,
+},
+
+razorpayQrCloseBy: {
+  type: Date,
+},
+
 amountToCharge: {
   type: Number,
   default: 0,
+},
+
+payoutStatus: {
+  type: String,
+  enum: ["not_required", "pending", "processing", "successful", "failed"],
+  default: "not_required",
+},
+
+payoutTransferId: {
+  type: String,
+},
+
+payoutFailureReason: {
+  type: String,
+  default: "",
+},
+
+payoutProcessedAt: {
+  type: Date,
 },
 
 razorpayFee: {

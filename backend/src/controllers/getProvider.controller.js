@@ -30,9 +30,9 @@ const getallServiceProvides = asyncHandler(async (req, res) => {
     const providers = await ServiceProvider.find(filter)
         .populate({
             path: 'user',
-            select: 'fullname'
+            select: 'fullname address'
         })
-        .select('serviceType rating totalReviews image')
+        .select('serviceType rating totalReviews image pricing address')
         .skip(skip)
         .limit(limitNum)
         .lean(); // optional but recommended will get plain JavaScript objects instead of Mongoose documents faster
@@ -50,8 +50,10 @@ const getallServiceProvides = asyncHandler(async (req, res) => {
         serviceType: provider.serviceType,
         rating: provider.rating,
         totalReviews: provider.totalReviews,
+        location: provider?.user?.address || provider?.address || '',
         image: provider.image || null,
-        price: priceByType.get(provider.serviceType) ?? null
+        price: priceByType.get(provider.serviceType) ?? provider.pricing ?? null,
+        pricing: provider.pricing ?? null
     }));
 
     res.status(200).json(

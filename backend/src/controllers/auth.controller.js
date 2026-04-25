@@ -9,6 +9,7 @@ import jwt from 'jsonwebtoken';
 const registerUser = asyncHandler(async (req, res) => {
 
     const traceId = req.headers['x-trace-id'] || null;
+   
     console.log("[auth.register]", {
         traceId,
         email: req.body?.email,

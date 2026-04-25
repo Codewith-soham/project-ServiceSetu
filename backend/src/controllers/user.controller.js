@@ -5,6 +5,31 @@ import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import bcrypt from 'bcryptjs';
 import { Booking } from '../models/booking.model.js';
+import { ServiceProvider } from '../models/serviceProvider.model.js';
+import { sendNotification, NOTIFICATION_EVENTS } from '../socket/notification.js';
+
+const emitBookingUpdateToParticipants = async (booking, action) => {
+    if (!booking?._id || !booking?.user || !booking?.provider) {
+        return;
+    }
+
+    const participants = new Set([String(booking.user)]);
+    const providerProfile = await ServiceProvider.findById(booking.provider).select('user').lean();
+    if (providerProfile?.user) {
+        participants.add(String(providerProfile.user));
+    }
+
+    const payload = {
+        bookingId: String(booking._id),
+        status: booking.status,
+        action,
+        updatedAt: new Date().toISOString()
+    };
+
+    for (const userId of participants) {
+        sendNotification(userId, 'Booking updated', NOTIFICATION_EVENTS.BOOKING_UPDATED, payload);
+    }
+};
 
 //user profile
 
@@ -127,6 +152,7 @@ const cancelBookingByUser = asyncHandler(async (req, res) => {
 
     booking.status = "cancelled_by_user";
     await booking.save();
+    await emitBookingUpdateToParticipants(booking, 'cancelled_by_user');
 
     res.status(200).json(
         new ApiResponse(200, booking, "Booking cancelled successfully")
@@ -152,6 +178,7 @@ const confirmServiceCompletionByUser = asyncHandler(async (req, res) => {
     booking.status = "completed";
     booking.completedAt = new Date();
     await booking.save();
+    await emitBookingUpdateToParticipants(booking, 'confirmed_completed_by_user');
 
     res.status(200).json(
         new ApiResponse(200, booking, "Booking marked as completed successfully")

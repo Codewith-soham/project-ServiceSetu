@@ -10,7 +10,7 @@ const LoginPage: React.FC = () => {
     const { login } = useAuth();
     
     const [formData, setFormData] = useState({
-        email: '',
+        identifier: '',
         password: ''
     });
     
@@ -23,7 +23,7 @@ const LoginPage: React.FC = () => {
         setError(null);
         
         try {
-            await login(formData.email, formData.password, (userRole) => {
+            await login(formData.identifier, formData.password, (userRole) => {
                 if (userRole === 'provider') {
                     navigate('/provider/dashboard', { replace: true });
                 } else {
@@ -91,11 +91,11 @@ const LoginPage: React.FC = () => {
                             <Input
                                 label="Email or Phone"
                                 placeholder="john@example.com or +91 98765 43210"
-                                type="email"
+                                type="text"
                                 icon={<Mail size={18} className="text-white/40" />}
                                 required
-                                value={formData.email}
-                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                value={formData.identifier}
+                                onChange={(e) => setFormData({ ...formData, identifier: e.target.value })}
                             />
                             <Input
                                 label="Password"

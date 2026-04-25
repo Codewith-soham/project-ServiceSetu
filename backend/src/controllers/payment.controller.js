@@ -105,19 +105,87 @@ const createPaymentOrder = asyncHandler(async (req,res) => {
       ? providerPrice
       : 500;
 
-  const startOfDay = new Date(bookingDateValue);
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(bookingDateValue);
-  endOfDay.setHours(23, 59, 59, 999);
+  // Allow multiple bookings per day, but block collisions in the same 30-min slot.
+  const slotStart = new Date(bookingDateValue);
+  const slotEnd = new Date(bookingDateValue);
+  slotEnd.setMinutes(slotEnd.getMinutes() + 29, 59, 999);
 
   const existingBooking = await Booking.findOne({
     provider: providerId,
-    bookingDate: { $gte: startOfDay, $lte: endOfDay },
+    bookingDate: { $gte: slotStart, $lte: slotEnd },
     status: { $in: ["awaiting_payment", "pending", "accepted"] },
   });
 
   if (existingBooking) {
-    throw new ApiError(409, "Provider already has a booking on this date");
+    const isSameUser = existingBooking.user?.toString?.() === req.user?._id?.toString?.();
+    const canRetry =
+      isSameUser &&
+      existingBooking.status === "awaiting_payment" &&
+      existingBooking.paymentStatus === "pending";
+
+    if (!canRetry) {
+      throw new ApiError(409, "Provider already has a booking at this time");
+    }
+
+    // Reuse the existing awaiting-payment booking by generating a fresh order.
+    const {
+      basePrice,
+      rawTotal,
+      amountToCharge,
+      platformFee,
+      providerAmount,
+      razorpayFee,
+      roundUpMargin,
+      platformEarning,
+      pricingVersion,
+    } = calculateFees(effectivePrice);
+
+    const razorpayInstance = getRazorpayInstance();
+    const order = await razorpayInstance.orders.create({
+      amount: Math.round(amountToCharge * 100),
+      currency: "INR",
+      receipt: `receipt_${Date.now()}`,
+    });
+
+    existingBooking.note = note ?? existingBooking.note;
+    existingBooking.address = address ?? existingBooking.address;
+    existingBooking.price = basePrice;
+    existingBooking.platformFee = platformFee;
+    existingBooking.razorpayFee = razorpayFee;
+    existingBooking.roundUpMargin = roundUpMargin;
+    existingBooking.providerAmount = providerAmount;
+    existingBooking.amountToCharge = amountToCharge;
+    existingBooking.pricingVersion = pricingVersion;
+
+    existingBooking.razorpayOrderId = order.id;
+    existingBooking.razorpayPaymentId = undefined;
+    existingBooking.razorpaySignature = undefined;
+    await existingBooking.save();
+
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          bookingId: existingBooking._id,
+          razorpayOrderId: order.id,
+          amount: order.amount,
+          razorpayKeyId: process.env.RAZORPAY_KEY_ID || "",
+          breakdown: {
+            basePrice,
+            rawTotal,
+            platformFee,
+            razorpayFee,
+            roundUpMargin,
+            providerPayout: providerAmount,
+            providerAmount,
+            platformProjectedEarning: platformEarning,
+            customerTotal: amountToCharge,
+            pricingVersion,
+          },
+        },
+        "Order refreshed successfully"
+      )
+    );
   }
 
   const {
@@ -190,6 +258,270 @@ const createPaymentOrder = asyncHandler(async (req,res) => {
   );
 });
 
+const createPaymentQr = asyncHandler(async (req, res) => {
+  const { providerId, bookingDate, note, address } = req.body;
+
+  if (!providerId || !bookingDate) {
+    throw new ApiError(400, "Provider ID and booking date are required");
+  }
+
+  const bookingDateValue = new Date(bookingDate);
+  if (Number.isNaN(bookingDateValue.getTime())) {
+    throw new ApiError(400, "Invalid booking date");
+  }
+  if (bookingDateValue < new Date()) {
+    throw new ApiError(400, "Booking date cannot be in the past");
+  }
+
+  const provider = await ServiceProvider.findById(providerId);
+  if (!provider) {
+    throw new ApiError(404, "Provider not found");
+  }
+
+  const normalizedServiceType = String(provider.serviceType || "").trim().toLowerCase();
+  const service = await Service.findOne({ serviceType: normalizedServiceType });
+
+  const servicePrice = Number(service?.price);
+  const providerPrice = Number(provider?.pricing);
+  const effectivePrice = Number.isFinite(servicePrice) && servicePrice > 0
+    ? servicePrice
+    : Number.isFinite(providerPrice) && providerPrice > 0
+      ? providerPrice
+      : 500;
+
+  // Allow multiple bookings per day, but block collisions in the same 30-min slot.
+  const slotStart = new Date(bookingDateValue);
+  const slotEnd = new Date(bookingDateValue);
+  slotEnd.setMinutes(slotEnd.getMinutes() + 29, 59, 999);
+
+  const existingBooking = await Booking.findOne({
+    provider: providerId,
+    bookingDate: { $gte: slotStart, $lte: slotEnd },
+    status: { $in: ["awaiting_payment", "pending", "accepted"] },
+  });
+
+  if (existingBooking) {
+    const isSameUser = existingBooking.user?.toString?.() === req.user?._id?.toString?.();
+    const canRetry =
+      isSameUser &&
+      existingBooking.status === "awaiting_payment" &&
+      existingBooking.paymentStatus === "pending";
+
+    if (!canRetry) {
+      throw new ApiError(409, "Provider already has a booking at this time");
+    }
+
+    // If we already have an active QR that hasn't expired, reuse it.
+    const hasReusableQr =
+      Boolean(existingBooking.razorpayQrCodeId && existingBooking.razorpayQrImageUrl) &&
+      (!existingBooking.razorpayQrCloseBy || existingBooking.razorpayQrCloseBy.getTime() > Date.now() + 30_000);
+
+    if (hasReusableQr) {
+      return res.status(200).json(
+        new ApiResponse(
+          200,
+          {
+            bookingId: existingBooking._id,
+            qrCodeId: existingBooking.razorpayQrCodeId,
+            qrImageUrl: existingBooking.razorpayQrImageUrl,
+            qrCloseBy: existingBooking.razorpayQrCloseBy || null,
+            amount: Math.round(Number(existingBooking.amountToCharge || 0) * 100),
+            currency: "INR",
+            breakdown: {
+              basePrice: existingBooking.price,
+              rawTotal: null,
+              platformFee: existingBooking.platformFee,
+              razorpayFee: existingBooking.razorpayFee,
+              roundUpMargin: existingBooking.roundUpMargin,
+              providerPayout: existingBooking.providerAmount,
+              providerAmount: existingBooking.providerAmount,
+              platformProjectedEarning: null,
+              customerTotal: existingBooking.amountToCharge,
+              pricingVersion: existingBooking.pricingVersion,
+            },
+          },
+          "QR reused successfully"
+        )
+      );
+    }
+
+    // Otherwise, generate a fresh QR and attach it to the existing booking.
+    const {
+      basePrice,
+      rawTotal,
+      amountToCharge,
+      platformFee,
+      providerAmount,
+      razorpayFee,
+      roundUpMargin,
+      platformEarning,
+      pricingVersion,
+    } = calculateFees(effectivePrice);
+
+    const razorpayInstance = getRazorpayInstance();
+    const closeBySeconds = Math.floor((Date.now() + 2 * 60 * 60 * 1000) / 1000);
+    const qr = await razorpayInstance.qrCode.create({
+      type: "upi_qr",
+      name: "ServiceSetu booking",
+      usage: "single_use",
+      fixed_amount: true,
+      payment_amount: Math.round(amountToCharge * 100),
+      description: "Service booking payment",
+      close_by: closeBySeconds,
+      notes: {
+        providerId: String(providerId),
+        userId: String(req.user?._id),
+      },
+    });
+
+    if (!qr?.id || !qr?.image_url) {
+      throw new ApiError(500, "Failed to create Razorpay QR");
+    }
+
+    existingBooking.note = note ?? existingBooking.note;
+    existingBooking.address = address ?? existingBooking.address;
+    existingBooking.price = basePrice;
+    existingBooking.platformFee = platformFee;
+    existingBooking.razorpayFee = razorpayFee;
+    existingBooking.roundUpMargin = roundUpMargin;
+    existingBooking.providerAmount = providerAmount;
+    existingBooking.amountToCharge = amountToCharge;
+    existingBooking.pricingVersion = pricingVersion;
+
+    existingBooking.razorpayQrCodeId = qr.id;
+    existingBooking.razorpayQrImageUrl = qr.image_url;
+    existingBooking.razorpayQrCloseBy = qr.close_by ? new Date(Number(qr.close_by) * 1000) : undefined;
+    await existingBooking.save();
+
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          bookingId: existingBooking._id,
+          qrCodeId: qr.id,
+          qrImageUrl: qr.image_url,
+          qrCloseBy: existingBooking.razorpayQrCloseBy || null,
+          amount: Math.round(amountToCharge * 100),
+          currency: "INR",
+          breakdown: {
+            basePrice,
+            rawTotal,
+            platformFee,
+            razorpayFee,
+            roundUpMargin,
+            providerPayout: providerAmount,
+            providerAmount,
+            platformProjectedEarning: platformEarning,
+            customerTotal: amountToCharge,
+            pricingVersion,
+          },
+        },
+        "QR refreshed successfully"
+      )
+    );
+  }
+
+  const {
+    basePrice,
+    rawTotal,
+    amountToCharge,
+    platformFee,
+    providerAmount,
+    razorpayFee,
+    roundUpMargin,
+    platformEarning,
+    pricingVersion,
+  } = calculateFees(effectivePrice);
+
+  const razorpayInstance = getRazorpayInstance();
+
+  let qr;
+  try {
+    // Create a Razorpay UPI QR (single-use, fixed amount). `payment_amount` is in paise.
+    const closeBySeconds = Math.floor((Date.now() + 2 * 60 * 60 * 1000) / 1000); // 2h expiry
+    qr = await razorpayInstance.qrCode.create({
+      type: "upi_qr",
+      name: "ServiceSetu booking",
+      usage: "single_use",
+      fixed_amount: true,
+      payment_amount: Math.round(amountToCharge * 100),
+      description: "Service booking payment",
+      close_by: closeBySeconds,
+      notes: {
+        providerId: String(providerId),
+        userId: String(req.user?._id),
+      },
+    });
+  } catch (err) {
+    console.error("[payments.createQr:error]", {
+      message: err?.message,
+      description: err?.description,
+      razorpay: err?.error,
+      statusCode: err?.statusCode,
+      code: err?.code,
+    });
+    const msg =
+      err?.error?.description ||
+      err?.description ||
+      err?.error?.message ||
+      err?.message ||
+      "Failed to create Razorpay QR";
+    // Razorpay often returns 400 when QR feature isn't enabled.
+    throw new ApiError(400, msg);
+  }
+
+  if (!qr?.id || !qr?.image_url) {
+    throw new ApiError(500, "Failed to create Razorpay QR");
+  }
+
+  const booking = await Booking.create({
+    user: req.user._id,
+    provider: providerId,
+    bookingDate: bookingDateValue,
+    note,
+    address: address || "",
+    price: basePrice,
+    platformFee,
+    razorpayFee,
+    roundUpMargin,
+    providerAmount,
+    amountToCharge,
+    pricingVersion,
+    razorpayQrCodeId: qr.id,
+    razorpayQrImageUrl: qr.image_url,
+    razorpayQrCloseBy: qr.close_by ? new Date(Number(qr.close_by) * 1000) : undefined,
+    status: "awaiting_payment",
+    paymentStatus: "pending",
+  });
+
+  return res.status(201).json(
+    new ApiResponse(
+      201,
+      {
+        bookingId: booking._id,
+        qrCodeId: qr.id,
+        qrImageUrl: qr.image_url,
+        qrCloseBy: booking.razorpayQrCloseBy || null,
+        amount: Math.round(amountToCharge * 100),
+        currency: "INR",
+        breakdown: {
+          basePrice,
+          rawTotal,
+          platformFee,
+          razorpayFee,
+          roundUpMargin,
+          providerPayout: providerAmount,
+          providerAmount,
+          platformProjectedEarning: platformEarning,
+          customerTotal: amountToCharge,
+          pricingVersion,
+        },
+      },
+      "QR created successfully"
+    )
+  );
+});
+
 //verifyPayyment 
 const verifyPayment = asyncHandler(async (req, res) => {
   const {
@@ -221,6 +553,86 @@ const verifyPayment = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(new ApiResponse(200, booking, "Payment verified"));
+});
+
+const getBookingPaymentStatus = asyncHandler(async (req, res) => {
+  const { bookingId } = req.params;
+
+  const booking = await Booking.findById(bookingId);
+  if (!booking) throw new ApiError(404, "Booking not found");
+
+  if (booking.user.toString() !== req.user._id.toString()) {
+    throw new ApiError(403, "Unauthorized");
+  }
+
+  if (!booking.razorpayOrderId && !booking.razorpayQrCodeId) {
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          bookingId: booking._id,
+          paymentStatus: booking.paymentStatus,
+          bookingStatus: booking.status,
+          razorpayOrderId: null,
+          gateway: { hasOrder: false, hasQr: Boolean(booking.razorpayQrCodeId) },
+        },
+        "Payment status fetched"
+      )
+    );
+  }
+
+  const razorpayInstance = getRazorpayInstance();
+  let payments = [];
+  let gatewayKind = "order";
+
+  if (booking.razorpayOrderId) {
+    const paymentsResponse = await razorpayInstance.orders.fetchPayments(booking.razorpayOrderId);
+    payments = Array.isArray(paymentsResponse?.items) ? paymentsResponse.items : [];
+    gatewayKind = "order";
+  } else if (booking.razorpayQrCodeId) {
+    const paymentsResponse = await razorpayInstance.qrCode.fetchPayments(booking.razorpayQrCodeId);
+    payments = Array.isArray(paymentsResponse?.items) ? paymentsResponse.items : [];
+    gatewayKind = "qr";
+  }
+
+  const bestPayment =
+    payments.find((p) => p?.status === "captured") ||
+    payments.find((p) => p?.status === "authorized") ||
+    payments[0] ||
+    null;
+
+  const gatewayStatus = bestPayment?.status || (payments.length ? "unknown" : "not_found");
+  const isPaidOnGateway = gatewayStatus === "captured" || gatewayStatus === "authorized";
+
+  if (isPaidOnGateway && booking.paymentStatus !== "paid") {
+    booking.paymentStatus = "paid";
+    booking.status = booking.status === "awaiting_payment" ? "pending" : booking.status;
+    booking.razorpayPaymentId = booking.razorpayPaymentId || bestPayment?.id;
+    await booking.save();
+  }
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        bookingId: booking._id,
+        paymentStatus: booking.paymentStatus,
+        bookingStatus: booking.status,
+        razorpayOrderId: booking.razorpayOrderId,
+        razorpayPaymentId: booking.razorpayPaymentId || bestPayment?.id || null,
+        gateway: {
+          kind: gatewayKind,
+          paymentsFound: payments.length,
+          status: gatewayStatus,
+          amount: bestPayment?.amount || null,
+          currency: bestPayment?.currency || null,
+          method: bestPayment?.method || null,
+          created_at: bestPayment?.created_at || null,
+        },
+      },
+      "Payment status fetched"
+    )
+  );
 });
 
 
@@ -275,7 +687,9 @@ const verifyCompletionOtp = asyncHandler(async (req, res) => {
   const booking = await Booking.findById(bookingId);
   if (!booking) throw new ApiError(404, "Booking not found");
 
-  const provider = await ServiceProvider.findOne({ user: req.user._id }).select("_id").lean();
+  const provider = await ServiceProvider.findOne({ user: req.user._id })
+    .select("_id payoutDetails")
+    .lean();
   if (!provider) {
     throw new ApiError(403, "Only provider allowed");
   }
@@ -298,9 +712,23 @@ const verifyCompletionOtp = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid OTP");
   }
 
+  const payoutDetails = provider.payoutDetails || {};
+  const hasBankDetails = Boolean(
+    payoutDetails.accountHolderName &&
+    payoutDetails.accountNumber &&
+    payoutDetails.ifscCode &&
+    payoutDetails.bankName
+  );
+
+  if (!hasBankDetails) {
+    throw new ApiError(400, "Provider payout details are incomplete. Please update bank details before release.");
+  }
+
   booking.isOtpVerified = true;
   booking.status = "completed";
   booking.paymentStatus = "released";
+  booking.payoutStatus = "processing";
+  booking.payoutProcessedAt = new Date();
   booking.completedAt = new Date();
 
   booking.completionOtp = undefined;
@@ -380,7 +808,9 @@ const rejectCompletion = asyncHandler(async (req, res) => {
 export {
   checkGatewayStatus,
     createPaymentOrder,
+  createPaymentQr,
   verifyPayment,
+  getBookingPaymentStatus,
   acceptCompletion,
   verifyCompletionOtp,
   refundPayment,

@@ -63,6 +63,8 @@ function toAuthUserFromLoginPayload(user: {
   email: string;
   fullname: string;
   role: string;
+  phone?: string;
+  address?: string;
 }): AuthUser {
   const role: UserRole =
     user.role === 'provider' ? 'provider' : user.role === 'user' ? 'user' : null;
@@ -71,6 +73,8 @@ function toAuthUserFromLoginPayload(user: {
     name: user.fullname,
     email: user.email,
     role,
+    phone: user.phone,
+    location: user.address,
   };
 }
 
@@ -100,6 +104,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const handleUnauthorized = () => {
+      localStorage.removeItem('serviceSetu_accessToken');
       setUser(null);
       setIsAuthenticating(false);
     };
@@ -158,8 +163,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.info('[auth:login] start', { email });
     const res = await authApi.login(email, password);
     const payload = res.data?.user;
+    const accessToken = res.data?.accessToken;
     if (!payload) {
       throw new Error(res.message || 'Login failed');
+    }
+    if (accessToken) {
+      localStorage.setItem('serviceSetu_accessToken', accessToken);
     }
     const nextUser = toAuthUserFromLoginPayload(payload);
     console.info('[auth:login] setUser', { id: nextUser.id, role: nextUser.role });
@@ -187,8 +196,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // Extract user payload from register response (same shape as login response)
     const payload = res.data?.user;
+    const accessToken = res.data?.accessToken;
     if (!payload) {
       throw new Error(res.message || 'Registration failed');
+    }
+    if (accessToken) {
+      localStorage.setItem('serviceSetu_accessToken', accessToken);
     }
     const nextUser = toAuthUserFromLoginPayload(payload);
     console.info('[auth:signup] setUser', { id: nextUser.id, role: nextUser.role });
@@ -199,6 +212,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     authApi.logout().finally(() => {
+      localStorage.removeItem('serviceSetu_accessToken');
       setUser(null);
     });
   };

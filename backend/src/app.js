@@ -3,8 +3,12 @@ import express from "express"
 import cors from "cors"
 import cookieParser from "cookie-parser"
 import rateLimit from "express-rate-limit"
+import helmet from "helmet"
 
 const app = express() 
+
+// Security: Add helmet middleware for HTTP headers protection
+app.use(helmet())
 
 //cors config -> allows frontend to run on different port/domain 
 app.use(cors

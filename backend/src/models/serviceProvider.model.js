@@ -49,6 +49,41 @@ const serviceProviderSchema = new mongoose.Schema({
         default: 0
     },
 
+    payoutDetails: {
+        accountHolderName: {
+            type: String,
+            default: ""
+        },
+        accountNumber: {
+            type: String,
+            default: ""
+        },
+        ifscCode: {
+            type: String,
+            default: ""
+        },
+        bankName: {
+            type: String,
+            default: ""
+        },
+        upiId: {
+            type: String,
+            default: ""
+        },
+        preferredMethod: {
+            type: String,
+            enum: ["bank", "upi"],
+            default: "bank"
+        },
+        isVerified: {
+            type: Boolean,
+            default: false
+        },
+        updatedAt: {
+            type: Date
+        }
+    },
+
     image: {
         type: String,
         default: ""

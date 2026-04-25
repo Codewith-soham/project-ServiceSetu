@@ -2,7 +2,9 @@ import { Router } from "express";
 import {
   checkGatewayStatus,
   createPaymentOrder,
+  createPaymentQr,
   verifyPayment,
+  getBookingPaymentStatus,
   acceptCompletion,
   verifyCompletionOtp,
   refundPayment,
@@ -19,7 +21,9 @@ router.use(verifyJWT);
 // USER ROUTES
 router.get("/status", checkGatewayStatus);
 router.post("/create-order", requireRole("user"), createPaymentOrder);
+router.post("/create-qr", requireRole("user"), createPaymentQr);
 router.post("/verify", requireRole("user"), verifyPayment);
+router.get("/bookings/:bookingId/status", requireRole("user"), getBookingPaymentStatus);
 router.patch("/:bookingId/accept", requireRole("user"), acceptCompletion);
 router.patch("/:bookingId/refund", requireRole("user"), refundPayment);
 router.patch(

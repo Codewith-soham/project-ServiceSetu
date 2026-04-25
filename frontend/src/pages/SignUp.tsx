@@ -16,7 +16,9 @@ const SignUpPage: React.FC = () => {
     fullname: '',
     email: '',
     phone: '',
-    address: '',
+    area: '',
+    city: '',
+    pincode: '',
     password: '',
     // Provider specific fields
     serviceType: '',
@@ -49,15 +51,34 @@ const SignUpPage: React.FC = () => {
       fullname: formData.fullname,
       email: formData.email,
       phone: formData.phone,
-      address: formData.address,
+      area: formData.area,
+      city: formData.city,
+      pincode: formData.pincode,
       serviceType: formData.serviceType,
       hasProviderImage: !!providerImage,
     });
     
     try {
+      const normalizedArea = String(formData.area || '').trim();
+      const normalizedCity = String(formData.city || '').trim();
+      const normalizedPincode = String(formData.pincode || '').trim();
+
+      if (!normalizedArea || !normalizedCity || !normalizedPincode) {
+        throw new Error('Please enter Area, City and Pincode');
+      }
+
+      const userAddressForSearch = `${normalizedArea}, ${normalizedCity} - ${normalizedPincode}`;
+      const providerFullAddress = `${normalizedArea}, ${normalizedCity} - ${normalizedPincode}`;
+
       // STEP A: Register (returns response with accessToken)
       // role is always "user" at register — becomeProvider upgrades it
-      const loginRes = await signup(formData, { traceId });
+      const loginRes = await signup(
+        {
+          ...formData,
+          address: userAddressForSearch,
+        },
+        { traceId }
+      );
       const accessToken = loginRes?.data?.accessToken;
       console.info(`[signup:${traceId}] register success`, {
         userRole: loginRes?.data?.user?.role ?? null,
@@ -73,7 +94,7 @@ const SignUpPage: React.FC = () => {
 
         const providerFormData = new FormData();
         providerFormData.append('serviceType', formData.serviceType);
-        providerFormData.append('address', formData.address);
+        providerFormData.append('address', providerFullAddress);
         providerFormData.append('pricing', String(formData.pricing));
         providerFormData.append('isAvailable', String(formData.isAvailable));
         providerFormData.append('image', providerImage);
@@ -226,13 +247,36 @@ const SignUpPage: React.FC = () => {
               </div>
 
               <Input
-                label="Full Address"
-                placeholder="123 Harmony St, New York"
+                label="Area / Locality"
+                placeholder="e.g. Andheri West"
                 icon={<MapPin size={18} className="text-white/40" />}
                 required
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                value={formData.area}
+                onChange={(e) => setFormData({ ...formData, area: e.target.value })}
               />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Input
+                  label="City"
+                  placeholder="e.g. Mumbai"
+                  required
+                  value={formData.city}
+                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                />
+                <Input
+                  label="Pincode"
+                  placeholder="e.g. 400058"
+                  inputMode="numeric"
+                  required
+                  value={formData.pincode}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      pincode: e.target.value.replace(/\D/g, '').slice(0, 6),
+                    })
+                  }
+                />
+              </div>
 
               <Input
                 label="Password"

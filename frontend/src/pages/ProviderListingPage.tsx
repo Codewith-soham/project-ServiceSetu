@@ -51,6 +51,37 @@ const ProviderListingPage: React.FC = () => {
 
     fetchProviders();
   }, [isAuthenticated, userLocation, serviceId]);
+
+  const resolveProviderLocation = (provider: any) => {
+    if (typeof provider?.location === 'string' && provider.location.trim()) {
+      return provider.location.trim();
+    }
+    if (typeof provider?.address === 'string' && provider.address.trim()) {
+      return provider.address.trim();
+    }
+    if (typeof provider?.userAddress === 'string' && provider.userAddress.trim()) {
+      return provider.userAddress.trim();
+    }
+    return 'Location unavailable';
+  };
+
+  const buildDefaultPackage = (provider: any) => {
+    const amount = Number(provider?.price ?? provider?.pricing ?? 0);
+    const normalizedAmount = Number.isFinite(amount) && amount > 0 ? amount : 0;
+
+    return {
+      id: `pkg-basic-${provider?.id || provider?._id || 'provider'}`,
+      name: 'Standard Visit',
+      price: normalizedAmount,
+      basePrice: normalizedAmount,
+      time: '1-2 hrs',
+      features: [
+        'On-site inspection',
+        'Service execution',
+        'Work completion summary',
+      ],
+    };
+  };
   
   const currentService = services.find(s => s.id === serviceId);
   const filteredProviders = serviceId
@@ -123,7 +154,7 @@ const ProviderListingPage: React.FC = () => {
                 <div className="flex items-center gap-4 text-sm text-[#9CA3AF]">
                   <span className="flex items-center gap-1.5">
                     <MapPin size={14} />
-                    {provider.location || 'Location unavailable'}
+                    {resolveProviderLocation(provider)}
                   </span>
                   {!hideReviewInfo && (
                     <span className="flex items-center gap-1.5">
@@ -136,26 +167,44 @@ const ProviderListingPage: React.FC = () => {
 
               <div className="space-y-4 pt-6 border-t border-white/5 mt-auto">
                 <div className="flex justify-between text-sm">
-                  <span className="text-[#4B5563] font-medium">Experience</span>
-                  <span className="text-white font-semibold">{provider.experience || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between text-sm">
                   <span className="text-[#4B5563] font-medium">Service</span>
                   <span className="text-white font-semibold">{provider.service || provider.serviceType}</span>
                 </div>
-                <Button 
-                  size="full" 
-                  className="mt-6 font-bold"
-                  onClick={() =>
-                    navigate(
-                      isAuthenticated
-                        ? `/provider/${provider.id || provider._id}`
-                        : '/login'
-                    )
-                  }
-                >
-                  View Full Profile
-                </Button>
+                <div className="flex gap-3 mt-6">
+                  <Button
+                    size="full"
+                    className="font-bold flex-1"
+                    onClick={() =>
+                      navigate(
+                        isAuthenticated
+                          ? `/provider/${provider.id || provider._id}`
+                          : '/login'
+                      )
+                    }
+                  >
+                    View Full Profile
+                  </Button>
+                  <Button
+                    size="full"
+                    variant="outline"
+                    className="font-bold flex-1"
+                    onClick={() => {
+                      if (!isAuthenticated) {
+                        navigate('/login');
+                        return;
+                      }
+
+                      navigate('/booking', {
+                        state: {
+                          provider,
+                          package: buildDefaultPackage(provider),
+                        },
+                      });
+                    }}
+                  >
+                    Book Now
+                  </Button>
+                </div>
               </div>
             </div>
           </Card>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { 
@@ -8,11 +8,15 @@ import {
   User, 
   Calendar, 
   BadgeIndianRupee,
-  ClipboardList
+  ClipboardList,
+  MapPin,
+  Phone
 } from 'lucide-react';
 import Card from '../../components/ui/Card';
+import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import { providerApi, bookingApi } from '../../services/apiClient';
+import { createAuthenticatedSocket, SOCKET_EVENTS } from '../../services/socketClient';
 
 const ProviderDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -24,8 +28,31 @@ const ProviderDashboard: React.FC = () => {
     totalGatewayFees: 0,
     totalBookings: 0,
   });
+  const [payoutDetails, setPayoutDetails] = useState<any>(null);
+  const [payoutForm, setPayoutForm] = useState({
+    accountHolderName: '',
+    accountNumber: '',
+    ifscCode: '',
+    bankName: '',
+    upiId: '',
+    preferredMethod: 'bank',
+  });
+  const [payoutSaving, setPayoutSaving] = useState(false);
+  const [payoutMessage, setPayoutMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const isMountedRef = useRef(true);
+
+  const formatBookingDate = (value: string | Date) => {
+    const parsedDate = new Date(value);
+    if (Number.isNaN(parsedDate.getTime())) return 'Invalid date';
+    return parsedDate.toLocaleDateString();
+  };
+
+  const formatBookingTime = (value: string | Date) => {
+    const parsedDate = new Date(value);
+    if (Number.isNaN(parsedDate.getTime())) return 'Invalid time';
+    return parsedDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  };
 
   useEffect(() => {
     return () => {
@@ -33,7 +60,7 @@ const ProviderDashboard: React.FC = () => {
     };
   }, []);
 
-  const fetchBookings = async () => {
+  const fetchBookings = useCallback(async () => {
     try {
       if (isMountedRef.current) setIsLoading(true);
       const [bookingResponse, earningsResponse] = await Promise.all([
@@ -67,11 +94,87 @@ const ProviderDashboard: React.FC = () => {
     } finally {
       if (isMountedRef.current) setIsLoading(false);
     }
-  };
+  }, []);
+
+  const fetchPayoutDetails = useCallback(async () => {
+    try {
+      const response = await providerApi.getPayoutDetails();
+      const nextPayout = response?.data?.payoutDetails || null;
+      if (!isMountedRef.current) return;
+      setPayoutDetails(nextPayout);
+      setPayoutForm({
+        accountHolderName: nextPayout?.accountHolderName || '',
+        accountNumber: '',
+        ifscCode: nextPayout?.ifscCode || '',
+        bankName: nextPayout?.bankName || '',
+        upiId: nextPayout?.upiId || '',
+        preferredMethod: nextPayout?.preferredMethod || 'bank',
+      });
+    } catch {
+      if (!isMountedRef.current) return;
+      setPayoutDetails(null);
+    }
+  }, []);
 
   useEffect(() => {
     fetchBookings();
-  }, []);
+    fetchPayoutDetails();
+  }, [fetchBookings, fetchPayoutDetails]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+
+    const socket = createAuthenticatedSocket();
+    const handleBookingUpdated = (payload: any) => {
+      console.log('[provider-dashboard] Booking updated via socket:', payload);
+      fetchBookings();
+    };
+    const handleSocketError = () => {
+      console.warn('[provider-dashboard] socket connect error; using polling fallback');
+    };
+
+    const pollingTimer = window.setInterval(() => {
+      console.log('[provider-dashboard] Polling for booking updates...');
+      fetchBookings();
+    }, 15000);
+
+    socket.on(SOCKET_EVENTS.BOOKING_UPDATED, handleBookingUpdated);
+    socket.on('connect_error', handleSocketError);
+    socket.connect();
+    console.log('[provider-dashboard] Socket connected and listening for events');
+
+    return () => {
+      socket.off(SOCKET_EVENTS.BOOKING_UPDATED, handleBookingUpdated);
+      socket.off('connect_error', handleSocketError);
+      socket.disconnect();
+      window.clearInterval(pollingTimer);
+    };
+  }, [user?.id, fetchBookings]);
+
+  const handlePayoutSave = async (event: React.FormEvent) => {
+    event.preventDefault();
+    try {
+      setPayoutSaving(true);
+      setPayoutMessage(null);
+      const response = await providerApi.updatePayoutDetails({
+        ...payoutForm,
+        accountNumber: payoutForm.accountNumber,
+      });
+      const nextPayout = response?.data?.payoutDetails || null;
+      setPayoutDetails(nextPayout);
+      setPayoutForm((current) => ({
+        ...current,
+        accountNumber: '',
+      }));
+      setPayoutMessage('Payout details saved successfully.');
+    } catch (err: any) {
+      setPayoutMessage(err?.message || 'Failed to save payout details');
+    } finally {
+      setPayoutSaving(false);
+    }
+  };
 
   const handleAction = async (id: string, action: 'accept' | 'reject' | 'complete') => {
     try {
@@ -162,18 +265,38 @@ const ProviderDashboard: React.FC = () => {
               
               <div className="pt-4 border-t border-white/5 space-y-3">
                 <div className="flex items-center gap-2 text-sm text-[#9CA3AF]">
+                  <Phone size={14} />
+                  <span>{booking.user?.phone || booking.userId?.phone || 'No phone'}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-[#9CA3AF]">
                   <ClipboardList size={14} />
                   <span>{booking.provider?.serviceType || booking.providerId?.serviceType || 'Service'}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-[#9CA3AF]">
                   <Calendar size={14} />
-                  <span>{new Date(booking.bookingDate).toLocaleDateString()}</span>
+                  <span>{formatBookingDate(booking.bookingDate)}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-[#9CA3AF]">
+                  <Clock size={14} />
+                  <span>{formatBookingTime(booking.bookingDate)}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-[#9CA3AF]">
                   <BadgeIndianRupee size={14} />
                   <span>Base: ₹{booking.price} | Earnings: <span className="text-green-500 font-bold">₹{Number(booking.providerAmount || 0).toFixed(2)}</span></span>
                 </div>
               </div>
+
+              {(booking.serviceAddress || booking.address || booking.user?.address) && (
+                <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                  <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-[#9CA3AF]">
+                    <MapPin size={14} className="text-[#2563EB]" />
+                    Service address
+                  </div>
+                  <p className="mt-2 text-sm text-white/90 leading-relaxed">
+                    {booking.serviceAddress || booking.address || booking.user?.address}
+                  </p>
+                </div>
+              )}
 
               <div className="flex gap-3 pt-2">
                 <Button 
@@ -219,9 +342,31 @@ const ProviderDashboard: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-2 text-sm text-[#9CA3AF]">
-                <Calendar size={14} />
-                <span>Scheduled for: {new Date(booking.bookingDate).toLocaleDateString()}</span>
+                <Phone size={14} />
+                <span>{booking.user?.phone || booking.userId?.phone || 'No phone'}</span>
               </div>
+
+              <div className="flex items-center gap-2 text-sm text-[#9CA3AF]">
+                <Calendar size={14} />
+                <span>Scheduled for: {formatBookingDate(booking.bookingDate)}</span>
+              </div>
+
+              <div className="flex items-center gap-2 text-sm text-[#9CA3AF]">
+                <Clock size={14} />
+                <span>Time: {formatBookingTime(booking.bookingDate)}</span>
+              </div>
+
+              {(booking.serviceAddress || booking.address || booking.user?.address) && (
+                <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                  <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-[#9CA3AF]">
+                    <MapPin size={14} className="text-[#2563EB]" />
+                    Service address
+                  </div>
+                  <p className="mt-2 text-sm text-white/90 leading-relaxed">
+                    {booking.serviceAddress || booking.address || booking.user?.address}
+                  </p>
+                </div>
+              )}
 
               <Button 
                 className="w-full bg-[#2563EB] hover:bg-[#1D4ED8] h-11 text-sm font-bold mt-2"
@@ -277,6 +422,95 @@ const ProviderDashboard: React.FC = () => {
             </div>
           )}
         </div>
+      </section>
+      )}
+
+      {activeTab === 'payouts' && (
+      <section className="space-y-6">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h2 className="text-xl font-bold">Payout Settings</h2>
+            <p className="text-sm text-[#9CA3AF]">Add the bank account or UPI where payouts should be sent.</p>
+          </div>
+          <span className="text-xs font-bold uppercase tracking-widest px-3 py-2 rounded-full bg-white/5 text-[#9CA3AF] border border-white/10">
+            {payoutDetails?.isVerified ? 'Verified' : 'Not verified'}
+          </span>
+        </div>
+
+        <Card className="p-6 md:p-8 border border-white/5 bg-[#111827] space-y-6">
+          {payoutMessage && (
+            <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-[#F9FAFB]">
+              {payoutMessage}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <p className="text-[#9CA3AF] text-xs uppercase tracking-widest">Saved Account</p>
+              <p className="font-semibold text-white mt-1">{payoutDetails?.accountHolderName || 'Not set'}</p>
+              <p className="text-[#9CA3AF] mt-1">{payoutDetails?.accountNumber || 'No account saved'}</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <p className="text-[#9CA3AF] text-xs uppercase tracking-widest">Preferred Method</p>
+              <p className="font-semibold text-white mt-1 capitalize">{payoutDetails?.preferredMethod || 'bank'}</p>
+              <p className="text-[#9CA3AF] mt-1">{payoutDetails?.upiId || 'No UPI saved'}</p>
+            </div>
+          </div>
+
+          <form onSubmit={handlePayoutSave} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input
+                label="Account Holder Name"
+                value={payoutForm.accountHolderName}
+                onChange={(e) => setPayoutForm({ ...payoutForm, accountHolderName: e.target.value })}
+                placeholder="Enter account holder name"
+                required
+              />
+              <Input
+                label="Account Number"
+                value={payoutForm.accountNumber}
+                onChange={(e) => setPayoutForm({ ...payoutForm, accountNumber: e.target.value })}
+                placeholder={payoutDetails?.accountNumber ? 'Enter new account number to replace saved one' : 'Enter account number'}
+                required
+              />
+              <Input
+                label="IFSC Code"
+                value={payoutForm.ifscCode}
+                onChange={(e) => setPayoutForm({ ...payoutForm, ifscCode: e.target.value.toUpperCase() })}
+                placeholder="ABCD0123456"
+                required
+              />
+              <Input
+                label="Bank Name"
+                value={payoutForm.bankName}
+                onChange={(e) => setPayoutForm({ ...payoutForm, bankName: e.target.value })}
+                placeholder="Enter bank name"
+                required
+              />
+              <Input
+                label="UPI ID"
+                value={payoutForm.upiId}
+                onChange={(e) => setPayoutForm({ ...payoutForm, upiId: e.target.value })}
+                placeholder="name@bank"
+              />
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-[#9CA3AF]">Preferred Payout Method</label>
+                <select
+                  value={payoutForm.preferredMethod}
+                  onChange={(e) => setPayoutForm({ ...payoutForm, preferredMethod: e.target.value })}
+                  className="w-full rounded-[10px] border border-[#334155] bg-[#0F172A] px-3 h-12 text-sm text-[#F9FAFB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                >
+                  <option value="bank">Bank Transfer</option>
+                  <option value="upi">UPI</option>
+                </select>
+              </div>
+            </div>
+
+            <Button type="submit" className="w-full md:w-auto" disabled={payoutSaving}>
+              {payoutSaving ? 'Saving...' : 'Save Payout Details'}
+            </Button>
+          </form>
+        </Card>
       </section>
       )}
     </div>

@@ -1,37 +1,55 @@
-# ServiceSetu - Full-Stack Documentation
+# ServiceSetu
 
-ServiceSetu is a full-stack platform for discovering local providers, creating bookings, handling Razorpay payments, and tracking provider earnings.
+ServiceSetu is a full-stack home-services platform where customers can find providers, place bookings, and track booking progress, while providers can manage requests, completion, earnings, and payout details.
+
+## Current Status
+
+
+
+## Recent Cleanup (April 25, 2026)
+
+### Removed Unused Files
+- **Backend utilities**: `src/utils/logger.js`, `src/utils/sanitize.js`, `src/utils/validation.js` (dead code)
+- **Frontend components**: `src/components/ui/LoadingSpinner.tsx` (unused UI component)
+- **Frontend contexts**: `src/context/ThemeContext.tsx` (unused context)
+- **Empty folders**: `frontend/src/pages/auth/` directory removed
+
+### Code Quality Improvements
+- Streamlined codebase by removing 6 unused files and empty directories
+- Enhanced `.gitignore` with comprehensive build output and dependency exclusions
+- Preserved all production-ready active code
+- All core functionality remains intact and fully operational
 
 ## Project Structure
 
-Top-level:
-- `backend/` - Node.js + Express + MongoDB API
-- `frontend/` - React + Vite + TypeScript client
 
-## Quick Start
+## Prerequisites
 
-### Prerequisites
 - Node.js 18+
-- MongoDB 4.4+ (local or Atlas)
+- MongoDB 4.4+
 - npm
 
-### Installation
+## Setup
+
+### 1) Install dependencies
+
+Backend:
 
 ```bash
 cd backend
 npm install
 ```
 
-For frontend:
+Frontend:
 
 ```bash
 cd ../frontend
 npm install
 ```
 
-### Environment Setup
+### 2) Configure backend environment
 
-Create `.env` inside `backend/`:
+Create `backend/.env`:
 
 ```env
 MONGO_URL=mongodb://localhost:27017/servicetu
@@ -59,260 +77,162 @@ CLOUDINARY_API_KEY=xxxx
 CLOUDINARY_API_SECRET=xxxx
 ```
 
-### Run
-
-```bash
-npm run dev
-```
-
-Server base URL: `http://localhost:8000/api/v1`
-
-Health check: `GET /healthCheck`
-
-For frontend development:
-
-```bash
-cd ../frontend
-npm run dev
-```
-
-Frontend default URL is provided by Vite (usually `http://localhost:5173`).
-
-## Frontend Documentation
-
-### Frontend Stack
-- React + TypeScript
-- Vite
-- React Router
-- Tailwind CSS
-- Lucide icons
-- Fetch-based API client with credentialed requests
-
-### Frontend Environment
-
-Optional frontend env:
+Optional frontend environment (`frontend/.env`):
 
 ```env
 VITE_API_BASE_URL=http://localhost:8000/api
 ```
 
-If `VITE_API_BASE_URL` is not provided, frontend defaults to:
-- `http://localhost:8000/api`
+## Run
 
-### Frontend Run and Build
+Backend:
 
-From `frontend/`:
+```bash
+cd backend
+npm run dev
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm run dev
+```
+
+Default URLs:
+
+- Backend API base: `http://localhost:8000/api/v1`
+- Frontend: `http://localhost:5173`
+
+## Tech Stack
+
+Backend:
+
+- Node.js + Express 5
+- MongoDB + Mongoose
+- JWT auth (access/refresh)
+- Socket.IO
+- Razorpay SDK
+- Cloudinary uploads
+
+Frontend:
+
+- React + TypeScript + Vite
+- React Router
+- Tailwind CSS
+- Socket.IO client
+
+## Auth and Roles
+
+- `user` can browse providers, create/cancel bookings, confirm completion, review provider.
+- `provider` can accept/reject bookings, mark completion, manage payouts and earnings.
+- Protected APIs use JWT from cookie or `Authorization: Bearer <token>`.
+
+## Realtime Booking Updates
+
+Socket server is initialized in backend and clients connect with credentials.
+
+- Event: `booking_updated`
+- Emitted when booking state changes on create/accept/reject/cancel/complete actions.
+- User and Provider dashboards subscribe to this event and refetch bookings automatically.
+
+Result: dashboard booking states update without manual page refresh.
+
+## Key API Endpoints
+
+Auth:
+
+- `POST /auth/register`
+- `POST /auth/login`
+- `POST /auth/logout`
+- `POST /auth/refresh-token`
+
+User:
+
+- `GET /users/profile`
+- `PUT /users/profile/update`
+- `PUT /users/change-password`
+
+Provider and discovery:
+
+- `POST /providers/become`
+- `GET /providers/nearby`
+- `GET /providers/payout-details`
+- `PUT /providers/payout-details`
+- `GET /getProviders/provider`
+
+Bookings:
+
+- `POST /bookings/create`
+- `GET /bookings/user-bookings`
+- `PATCH /bookings/:bookingId/cancel`
+- `PATCH /bookings/:bookingId/confirm-completion`
+- `GET /bookings/provider`
+- `GET /bookings/provider/earnings`
+- `POST /bookings/:id/accept`
+- `POST /bookings/:id/reject`
+- `POST /bookings/:id/complete`
+
+Payments (backend available):
+
+- `GET /payments/status`
+- `POST /payments/create-order`
+- `POST /payments/create-qr`
+- `POST /payments/verify`
+- `GET /payments/bookings/:bookingId/status`
+- `PATCH /payments/:bookingId/accept`
+- `PATCH /payments/:bookingId/reject`
+- `PATCH /payments/:bookingId/refund`
+- `PATCH /payments/:bookingId/verify-otp`
+
+Reviews:
+
+- `POST /reviews`
+- `GET /reviews/:providerId`
+
+Admin:
+
+- `PUT /admin/services/price`
+
+## Booking Lifecycle (current)
+
+Primary states used in booking model:
+
+- `awaiting_payment`
+- `pending`
+- `accepted`
+- `service_completed_by_provider`
+- `completed`
+- `cancelled_by_user`
+- `rejected_by_provider`
+
+Common path in active UI:
+
+1. Customer books service.
+2. Provider accepts/rejects.
+3. Provider marks service complete.
+4. Customer confirms completion.
+5. Both dashboards receive realtime update.
+
+## Notes
+
+- Frontend `PaymentPage` is intentionally disabled right now.
+- Backend payment and payout APIs are still implemented for progressive rollout.
+- Some legacy booking endpoints still exist for compatibility.
+
+## Scripts
+
+Backend (`backend/`):
+
+```bash
+npm run dev
+npm test
+```
+
+Frontend (`frontend/`):
 
 ```bash
 npm run dev
 npm run build
 npm run preview
 ```
-
-### Frontend Routes (Current)
-
-Public pages:
-- `/`
-- `/about`
-- `/contact`
-- `/login`
-- `/signup`
-
-Service and booking pages:
-- `/services`
-- `/providers`
-- `/provider/:id`
-- `/booking`
-- `/payment`
-
-Protected dashboards:
-- `/user/dashboard` (user role)
-- `/provider/dashboard` (provider role)
-
-Legacy redirects still mapped:
-- `/login-choice`, `/signup-choice`, `/user/login`, `/user/signup`, `/provider/login`, `/provider/signup`
-
-### Frontend API Integration
-
-Frontend API client provides grouped modules:
-- `authApi` (login/register/logout/get profile)
-- `providerApi` (become provider, list, nearby, bookings, earnings)
-- `bookingApi` (create, my bookings, accept/reject/complete)
-- `paymentApi` (create order, verify payment)
-- `userApi` (dashboard booking list)
-
-Key integration behavior:
-- Requests include `credentials: include` for cookie-based auth.
-- 401 responses trigger a global unauthorized event.
-- Booking page creates payment order and passes order data to payment page.
-- Payment page opens Razorpay checkout and verifies payment after success.
-
-### Frontend Auth and Route Guards
-
-- If unauthenticated, dashboard routes redirect to login.
-- If role mismatch:
-  - user route redirects provider to provider dashboard
-  - provider route redirects user to user dashboard
-
-### Frontend Pages Overview
-
-- Home/About/Contact for marketing and discovery
-- Services and provider listing/detail for selection flow
-- Booking and Payment for transaction flow
-- User dashboard for booking history
-- Provider dashboard for booking actions and earnings summary
-
-## API Endpoints
-
-### Authentication
-- `POST /auth/register` - Register user
-- `POST /auth/login` - Login (email or phone)
-- `POST /auth/logout` - Logout (auth required)
-- `POST /auth/refresh-token` - Refresh access token
-
-### User Profile
-- `GET /users/profile` - Get profile
-- `PUT /users/profile/update` - Update profile
-- `PUT /users/change-password` - Change password
-
-### Provider and Discovery
-- `POST /providers/become` - Convert user to provider (auth, role user)
-- `GET /providers/nearby` - Nearby providers (public, lat/lon or address)
-- `GET /getProviders/provider` - Public provider listing with pagination/filter
-
-### Bookings
-User-facing:
-- `POST /bookings/create` - Create booking
-- `GET /bookings/user-bookings` - User bookings
-- `PATCH /bookings/:bookingId/cancel` - Cancel booking
-- `PATCH /bookings/:bookingId/confirm-completion` - User confirms completion
-
-Provider-facing:
-- `GET /bookings/provider` - Provider bookings
-- `GET /bookings/provider/earnings` - Provider earnings summary
-- `POST /bookings/:id/accept` - Accept booking
-- `POST /bookings/:id/reject` - Reject booking
-- `POST /bookings/:id/complete` - Mark completed by provider
-
-Legacy-compatible booking endpoints (still present):
-- `GET /bookings/provider-bookings`
-- `PATCH /bookings/:bookingId/status`
-- `PATCH /bookings/:bookingId/complete`
-
-### Payments
-- `POST /payments/create-order` - Create Razorpay order + booking financial snapshot
-- `POST /payments/verify` - Verify Razorpay signature
-- `PATCH /payments/:bookingId/accept` - User accepts provider completion (generates OTP)
-- `PATCH /payments/:bookingId/reject` - User rejects completion
-- `PATCH /payments/:bookingId/refund` - Refund payment
-- `PATCH /payments/:bookingId/verify-otp` - Provider verifies OTP, releases payment
-
-### Reviews
-- `POST /reviews` - Add review
-- `GET /reviews/:providerId` - Provider reviews
-
-### Admin
-- `PUT /admin/services/price` - Update service type base pricing
-
-## Universal Pricing Policy (All Base Prices)
-
-Pricing is centralized in `backend/src/utils/razorpay.util.js` and used by payment/booking flows.
-
-For any base price:
-1. `platformFee = basePrice * PLATFORM_COMMISSION_RATE`
-2. `razorpayFee = basePrice * RAZORPAY_FEE_RATE + RAZORPAY_FIXED_FEE`
-3. `rawTotal = basePrice + platformFee + razorpayFee`
-4. `amountToCharge = round up rawTotal by PRICE_ROUND_TO`
-5. If already on boundary, apply at least `MIN_ROUND_UP_STEPS` increment
-6. Cap by `MAX_MARKUP_RATE`
-7. `providerAmount = basePrice` (guaranteed)
-
-Returned breakdown fields include:
-- `basePrice`
-- `rawTotal`
-- `platformFee`
-- `razorpayFee`
-- `roundUpMargin`
-- `customerTotal` / `amountToCharge`
-- `providerPayout` and `providerAmount`
-- `platformProjectedEarning`
-- `pricingVersion`
-
-Example (`basePrice=500`, defaults):
-- `rawTotal=520`
-- `amountToCharge=525`
-- `providerAmount=500`
-
-## Utilities Used
-
-Located in `backend/src/utils/`:
-- `ApiError.js`: typed HTTP/business errors
-- `ApiResponse.js`: consistent success responses
-- `asyncHandler.js`: wraps async controllers
-- `geocode.util.js`: address normalization + Nominatim geocoding candidates
-- `razorpay.util.js`: Razorpay client, signature verify, pricing engine
-- `multer.util.js`: provider image upload middleware (JPG/PNG/WEBP, size limit)
-- `cloudinary.util.js`: upload/delete media in Cloudinary
-
-## Booking and Payment Lifecycle
-
-Typical paid flow:
-1. User creates payment order (`/payments/create-order`) which also creates booking with status `awaiting_payment`
-2. User completes checkout and backend verifies via `/payments/verify` -> booking becomes `pending`, payment `paid`
-3. Provider accepts and completes service
-4. User accepts completion -> OTP generated
-5. Provider verifies OTP -> booking `completed`, payment `released`
-
-## Data Model Highlights
-
-### Booking financial snapshot fields
-- `price`
-- `platformFee`
-- `providerAmount`
-- `razorpayFee`
-- `amountToCharge`
-- `roundUpMargin`
-- `pricingVersion`
-- `razorpayOrderId`, `razorpayPaymentId`, `razorpaySignature`
-
-These values are stored at booking/order creation time for reporting integrity.
-
-## Rate Limiting
-
-Configured in `backend/src/app.js`:
-- Auth routes: 50 requests / 15 min (skipped in development)
-- General routes: 500 requests / 15 min (skipped in development)
-
-## Response Format
-
-Success:
-```json
-{
-  "statusCode": 200,
-  "data": {},
-  "message": "Success",
-  "success": true
-}
-```
-
-Error:
-```json
-{
-  "statusCode": 400,
-  "message": "Error description",
-  "success": false
-}
-```
-
-## Scripts
-
-```bash
-npm run dev
-npm start
-npm test
-```
-
-## Notes
-
-- Some booking endpoints are duplicated for compatibility; clients should standardize on newer provider routes.
-- `npm test` currently depends on local seed/auth assumptions and may fail if personas/services are missing.
