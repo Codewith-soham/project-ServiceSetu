@@ -159,7 +159,7 @@ const SignUpPage: React.FC = () => {
       <div className="hidden lg:flex w-1/2 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 to-[#0F172A] z-0" />
         <img
-          src="/src/assets/auth-city.png"
+          src="/auth-city.png"
           alt="ServiceSetu"
           className="absolute inset-0 w-full h-full object-cover opacity-40 mix-blend-overlay"
         />

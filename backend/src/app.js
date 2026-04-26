@@ -11,14 +11,15 @@ const app = express()
 app.use(helmet())
 
 //cors config -> allows frontend to run on different port/domain 
-app.use(cors
-    (
-        {
-            origin: process.env.CORS_ORIGIN || "http://localhost:5173",
-            credentials: true
-        }
-    )
-)
+const corsOptions = {
+	origin: process.env.CORS_ORIGIN,
+	credentials: true,
+	methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+	allowedHeaders: ["Content-Type", "Authorization"]
+};
+
+app.use(cors(corsOptions));
+
 
 //common middleware config 
 app.use(express.json({limit: "10mb"})) //parses incoming json data from req.body - supports larger payloads for profiles, images, etc.

@@ -10,7 +10,7 @@ const Footer: React.FC = () => {
         <div className="space-y-6">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-[#2563EB] rounded overflow-hidden flex items-center justify-center">
-              <img src="/src/assets/logo.png" alt="ServiceSetu Logo" className="w-full h-full object-cover" />
+              <img src="/logo.png" alt="ServiceSetu Logo" className="w-full h-full object-cover" />
             </div>
             <span className="text-lg font-bold tracking-tight text-white">
               Service<span className="text-[#2563EB]">Setu</span>

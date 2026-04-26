@@ -50,7 +50,7 @@ const HomePage: React.FC = () => {
         {/* Background Image with Overlay */}
         <div 
           className="absolute inset-0 -z-20 bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: 'url("/src/assets/hero-bg.png")' }}
+          style={{ backgroundImage: 'url("/hero-bg.png")' }}
         />
         <div className="absolute inset-0 -z-10 bg-gradient-to-b from-[#0F172A]/80 via-[#0F172A]/60 to-[#0F172A]" />
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[120%] h-full bg-[#2563EB]/5 rounded-full blur-[120px] -z-10" />

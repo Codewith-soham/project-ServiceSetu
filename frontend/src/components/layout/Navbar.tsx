@@ -63,7 +63,7 @@ const Navbar: React.FC = () => {
         onClick={() => navigate('/')}
       >
         <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center group-hover:scale-105 transition-transform">
-          <img src="/src/assets/logo.png" alt="ServiceSetu Logo" className="w-full h-full object-cover" />
+          <img src="/logo.png" alt="ServiceSetu Logo" className="w-full h-full object-cover" />
         </div>
         <span className="text-xl font-bold tracking-tight text-white">
           Service<span className="text-[#2563EB]">Setu</span>
