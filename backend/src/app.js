@@ -1,33 +1,83 @@
 // Main: Express app wiring (middleware + routes).
+//
+// IMPORTANT: dotenv MUST load before anything reads process.env.
+// Previously it was loaded in server.js AFTER this module was imported,
+// which meant CORS_ORIGIN was undefined when cors() initialized.
+import dotenv from "dotenv"
+import path from "path"
+import { fileURLToPath } from "url"
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+dotenv.config({ path: path.resolve(__dirname, "../.env") })
+
 import express from "express"
 import cors from "cors"
 import cookieParser from "cookie-parser"
 import rateLimit from "express-rate-limit"
 import helmet from "helmet"
 
-const app = express() 
+const app = express()
 
-// Security: Add helmet middleware for HTTP headers protection
-app.use(helmet())
+// ─── CORS ────────────────────────────────────────────────────────────
+// Parse allowed origins (supports comma-separated list for multi-env)
+const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173")
+    .split(",")
+    .map(o => o.trim())
+    .filter(Boolean)
 
-//cors config -> allows frontend to run on different port/domain 
+console.log("[app.js] Allowed CORS origins:", allowedOrigins)
+
 const corsOptions = {
-	origin: process.env.CORS_ORIGIN,
-	credentials: true,
-	methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-	allowedHeaders: ["Content-Type", "Authorization"]
-};
+    origin: (requestOrigin, callback) => {
+        // Allow requests with no origin (curl, server-to-server, mobile apps)
+        if (!requestOrigin) return callback(null, true)
 
-app.use(cors(corsOptions));
+        if (allowedOrigins.includes(requestOrigin)) {
+            return callback(null, requestOrigin)
+        }
 
+        console.warn(`[CORS] Blocked origin: ${requestOrigin}`)
+        return callback(new Error(`Origin ${requestOrigin} not allowed by CORS`))
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    exposedHeaders: ["set-cookie"],
+    maxAge: 86400 // Cache preflight for 24 hours
+}
 
-//common middleware config 
-app.use(express.json({limit: "10mb"})) //parses incoming json data from req.body - supports larger payloads for profiles, images, etc.
-app.use(express.urlencoded({extended: true, limit: "10mb"})) //parses form data (data from html forms)
-app.use(express.static("public"))  //used to serve static files like images and pdfs stuff
-app.use(cookieParser())  //parses cookies sent by the client required to read jwt refresh tokens
+// Apply CORS to all requests (this also handles preflight OPTIONS automatically)
+app.use(cors(corsOptions))
 
-//rate limiting middleware
+// Explicit preflight handler as fallback — Express 5 compatible
+app.use((req, res, next) => {
+    if (req.method === "OPTIONS") {
+        return res.sendStatus(204)
+    }
+    next()
+})
+
+// ─── Security Headers (Helmet) ──────────────────────────────────────
+// helmet() works fine on Express 5 as of helmet v8+.
+// If you hit "PathError: Missing parameter name" it means helmet is
+// registering a sub-app with "/*" which Express 5 rejects.
+// Fix: use helmet with crossOriginResourcePolicy disabled (it's the
+// one that most commonly conflicts with cross-origin API calls anyway).
+app.use(
+    helmet({
+        crossOriginResourcePolicy: { policy: "cross-origin" },
+        // Don't set crossOriginOpenerPolicy for API servers
+        crossOriginOpenerPolicy: false,
+    })
+)
+
+// ─── Common Middleware ───────────────────────────────────────────────
+app.use(express.json({ limit: "10mb" }))          // Parses incoming JSON from req.body
+app.use(express.urlencoded({ extended: true, limit: "10mb" })) // Parses form data
+app.use(express.static("public"))                  // Serve static files
+app.use(cookieParser())                            // Parse cookies (JWT refresh tokens)
+
+// ─── Rate Limiting ──────────────────────────────────────────────────
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 50, // limit each IP to 50 requests per windowMs
@@ -46,16 +96,17 @@ const generalLimiter = rateLimit({
     skip: (req) => process.env.NODE_ENV === 'development'
 })
 
-//basic healthcheck route 
+// ─── Routes ─────────────────────────────────────────────────────────
 import healthCheckRouter from "./routes/healthCheck.route.js"
-import  authRouter from "./routes/auth.route.js";
-import  providerRouter from "./routes/provider.route.js";
-import userRouter from "./routes/user.route.js";
-import getProvidersRouter from "./routes/getProviders.route.js";
-import bookingRouter from "./routes/booking.route.js";
-import adminRouter from "./routes/admin.route.js";
-import reviewRouter from "./routes/review.route.js";
-import paymentRouter from "./routes/payment.route.js";
+import authRouter from "./routes/auth.route.js"
+import providerRouter from "./routes/provider.route.js"
+import userRouter from "./routes/user.route.js"
+import getProvidersRouter from "./routes/getProviders.route.js"
+import bookingRouter from "./routes/booking.route.js"
+import adminRouter from "./routes/admin.route.js"
+import reviewRouter from "./routes/review.route.js"
+import paymentRouter from "./routes/payment.route.js"
+
 app.use("/api/v1/auth", authLimiter, authRouter); // Apply auth limiter to auth routes
 
 // Apply general limiter to other routes
@@ -66,10 +117,11 @@ app.use("/api/v1/bookings", generalLimiter, bookingRouter)
 app.use("/api/v1/admin", generalLimiter, adminRouter)
 app.use("/api/v1/reviews", generalLimiter, reviewRouter)
 app.use("/api/v1/healthCheck", healthCheckRouter)
-app.use("/api/v1/payments", generalLimiter , paymentRouter) 
+app.use("/api/v1/payments", generalLimiter, paymentRouter)
 
-// Centralized error handler (must be after all routes)
-// Returns consistent JSON: { success: false, statusCode, message, stack?(dev) }
+// ─── Centralized Error Handler ──────────────────────────────────────
+// Must be after all routes. Returns consistent JSON:
+// { success: false, statusCode, message, stack?(dev) }
 app.use((err, req, res, next) => {
     // eslint-disable-next-line no-unused-vars
     next;
