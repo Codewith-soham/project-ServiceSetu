@@ -41,21 +41,26 @@ const corsOptions = {
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: [
+        "Content-Type",
+        "Authorization",
+        "x-trace-id",        // Distributed tracing header sent by frontend
+        "x-request-id",     // Request correlation ID
+        "x-correlation-id", // Alternate correlation ID pattern
+        "x-forwarded-for",  // Proxy forwarding
+        "Accept",
+        "Origin",
+    ],
     exposedHeaders: ["set-cookie"],
-    maxAge: 86400 // Cache preflight for 24 hours
+    preflightContinue: false,   // cors() handles OPTIONS and ends the response itself
+    optionsSuccessStatus: 204,  // Respond to preflight with 204 No Content
+    maxAge: 86400               // Cache preflight response for 24 hours
 }
 
-// Apply CORS to all requests (this also handles preflight OPTIONS automatically)
+// Apply CORS to all requests.
+// cors() with preflightContinue:false automatically terminates OPTIONS preflight
+// requests with the correct Access-Control-* headers — no manual handler needed.
 app.use(cors(corsOptions))
-
-// Explicit preflight handler as fallback — Express 5 compatible
-app.use((req, res, next) => {
-    if (req.method === "OPTIONS") {
-        return res.sendStatus(204)
-    }
-    next()
-})
 
 // ─── Security Headers (Helmet) ──────────────────────────────────────
 // helmet() works fine on Express 5 as of helmet v8+.
