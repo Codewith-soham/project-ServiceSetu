@@ -7,18 +7,37 @@ import helmet from "helmet"
 
 const app = express() 
 
+const allowedOrigins = Array.from(
+    new Set([
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        ...(process.env.CORS_ORIGIN || "")
+            .split(",")
+            .map((origin) => origin.trim())
+            .filter(Boolean)
+    ])
+)
+
+const corsOptions = {
+    origin: (origin, callback) => {
+        // Allow server-to-server tools and same-origin requests with no Origin header.
+        if (!origin || allowedOrigins.includes(origin)) {
+            return callback(null, true)
+        }
+
+        return callback(new Error(`Not allowed by CORS: ${origin}`))
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Trace-Id"]
+}
+
 // Security: Add helmet middleware for HTTP headers protection
 app.use(helmet())
 
 //cors config -> allows frontend to run on different port/domain 
-app.use(cors
-    (
-        {
-            origin: process.env.CORS_ORIGIN || "http://localhost:5173",
-            credentials: true
-        }
-    )
-)
+app.use(cors(corsOptions))
+app.options("*", cors(corsOptions))
 
 //common middleware config 
 app.use(express.json({limit: "10mb"})) //parses incoming json data from req.body - supports larger payloads for profiles, images, etc.
