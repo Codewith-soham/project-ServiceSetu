@@ -4,7 +4,12 @@ const NOTIFICATION_EVENTS = {
   SERVICE_COMPLETED: "service_completed",
   USER_ACCEPTED: "user_accepted",
   PAYMENT_RELEASED: "payment_released",
-  BOOKING_UPDATED: "booking_updated"
+  BOOKING_UPDATED: "booking_updated",
+  PAYMENT_HELD: "payment_held",
+  PROVIDER_OTP_RECEIVED: "provider_otp",
+  BOOKING_DISPUTED: "booking_disputed",
+  USER_FLAGGED: "user_flagged",
+  REFUND_INITIATED: "refund_initiated"
 };
 
 const sendNotification = (userId, message, type, meta = {}) => {

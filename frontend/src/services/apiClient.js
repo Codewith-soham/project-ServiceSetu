@@ -3,9 +3,12 @@
  * Base URL: VITE_API_BASE_URL or http://localhost:8000/api → requests go to `${base}/v1/...`.
  */
 
-const BASE_URL = (
+const RAW_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api"
 ).replace(/\/$/, "");
+
+// Keep BASE_URL at the API root so API_PREFIX can consistently add /v1.
+const BASE_URL = RAW_BASE_URL.replace(/\/v1$/i, "");
 
 const API_PREFIX = "/v1";
 
@@ -292,6 +295,30 @@ export const bookingApi = {
       method: "POST",
     });
   },
+
+  /**
+   * Provider verifies completion OTP
+   * @param {string} bookingId
+   * @param {string} otp
+   */
+  async verifyCompletionOtp(bookingId, otp) {
+    return request(`/payments/${encodeURIComponent(bookingId)}/verify-otp`, {
+      method: "PATCH",
+      body: JSON.stringify({ otp }),
+    });
+  },
+
+  /**
+   * Provider flags non-cooperative user
+   * @param {string} bookingId
+   * @param {string} reason
+   */
+  async flagUser(bookingId, reason) {
+    return request(`/payments/${encodeURIComponent(bookingId)}/flag-user`, {
+      method: "PATCH",
+      body: JSON.stringify({ reason }),
+    });
+  },
 };
 
 export const paymentApi = {
@@ -313,11 +340,12 @@ export const paymentApi = {
   },
 
   /**
-  * CONTRACT: POST /payments/create-order body is { providerId, bookingDate, note?, address? }.
-  * @param {{ providerId: string, bookingDate: string, note?: string, address?: string }} orderPayload
+   * Create payment order for accepted booking
+   * @param {{ bookingId: string }} orderPayload
    */
   async createOrder(orderPayload) {
-    return request("/payments/create-order", {
+    const bookingId = orderPayload.bookingId;
+    return request(`/payments/${encodeURIComponent(bookingId)}/create-order`, {
       method: "POST",
       body: JSON.stringify(orderPayload),
     });
@@ -325,7 +353,7 @@ export const paymentApi = {
 
   /**
    * QR scan-to-pay flow. Returns { bookingId, qrCodeId, qrImageUrl, ... }.
-   * @param {{ providerId: string, bookingDate: string, note?: string, address?: string }} orderPayload
+   * @param {{ bookingId: string }} orderPayload
    */
   async createQr(orderPayload) {
     return request("/payments/create-qr", {
@@ -341,6 +369,18 @@ export const paymentApi = {
     return request("/payments/verify", {
       method: "POST",
       body: JSON.stringify(paymentData),
+    });
+  },
+
+  /**
+   * User disputes booking completion
+   * @param {string} bookingId
+   * @param {string} reason
+   */
+  async disputeBooking(bookingId, reason) {
+    return request(`/payments/${encodeURIComponent(bookingId)}/dispute`, {
+      method: "PATCH",
+      body: JSON.stringify({ reason }),
     });
   },
 };
@@ -370,6 +410,39 @@ export const reviewApi = {
     params.set("limit", String(limit));
     return request(`/reviews/${encodeURIComponent(providerId)}?${params.toString()}`, {
       method: "GET",
+    });
+  },
+};
+
+export const adminApi = {
+  /**
+   * Get all disputed and flagged bookings
+   */
+  async getDisputes() {
+    return request("/admin/disputes", {
+      method: "GET",
+    });
+  },
+
+  /**
+   * Admin approves provider - release payment
+   * @param {string} bookingId
+   * @param {string} reason
+   */
+  async forceRelease(bookingId, reason = "") {
+    return request(`/admin/bookings/${encodeURIComponent(bookingId)}/force-release`, {
+      method: "PATCH",
+      body: JSON.stringify({ reason }),
+    });
+  },
+
+  /**
+   * Admin approves user - refund payment
+   * @param {string} bookingId
+   */
+  async forceRefund(bookingId) {
+    return request(`/admin/bookings/${encodeURIComponent(bookingId)}/force-refund`, {
+      method: "PATCH",
     });
   },
 };

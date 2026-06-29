@@ -72,7 +72,7 @@ const createBooking = asyncHandler(async (req, res) => {
     const existingBooking = await Booking.findOne({
         provider: providerId,
         bookingDate: { $gte: slotStart, $lte: slotEnd },
-        status: { $in: ["awaiting_payment", "pending", "accepted"] }
+        status: { $in: ["pending", "accepted", "payment_held"] }
     });
 
     if (existingBooking) {
@@ -142,8 +142,8 @@ const markServiceCompletedByProvider = asyncHandler(async (req, res) => {
         throw new ApiError(403, "You are not authorized to complete this booking");
     }
 
-    if (booking.status !== "accepted") {
-        throw new ApiError(400, "Only accepted bookings can be marked as completed");
+    if (booking.status !== "payment_held") {
+        throw new ApiError(400, "Only bookings with payment held can be marked as completed");
     }
 
     booking.status = "service_completed_by_provider";

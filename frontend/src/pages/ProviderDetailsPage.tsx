@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Star, MapPin, CheckCircle, ShieldCheck, Clock, ArrowLeft, MessageSquare } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';

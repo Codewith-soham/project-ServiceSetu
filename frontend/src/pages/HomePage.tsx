@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate } from 'react-router-dom';
 import { Search, MapPin, Star, Zap, Droplets, SprayCan, Wrench } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';

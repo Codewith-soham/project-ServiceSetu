@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   LayoutDashboard,
@@ -148,10 +148,12 @@ const UserDashboard: React.FC = () => {
   const mapApiStatusToUI = (status: string) => {
     const s = status?.toLowerCase();
     if (['pending', 'awaiting_payment'].includes(s)) return 'Pending';
-    if (s === 'accepted') return 'Accepted';
+    if (s === 'accepted') return 'Awaiting Payment';
+    if (s === 'payment_held') return 'Payment Confirmed';
     if (s === 'service_completed_by_provider') return 'Awaiting Confirmation';
+    if (s === 'disputed') return 'Disputed';
     if (s === 'completed') return 'Completed';
-    if (['cancelled_by_user', 'rejected_by_provider'].includes(s)) return 'Cancelled';
+    if (['cancelled_by_user', 'rejected_by_provider', 'cancelled_by_admin'].includes(s)) return 'Cancelled';
     return 'Pending';
   };
 
@@ -284,33 +286,65 @@ const UserDashboard: React.FC = () => {
                       <td className="px-8 py-6">
                         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${booking.status === 'Completed' ? 'bg-green-500/10 text-green-500' :
                           booking.status === 'Awaiting Confirmation' ? 'bg-purple-500/10 text-purple-400' :
-                          booking.status === 'Accepted' ? 'bg-blue-500/10 text-blue-500' :
+                          booking.status === 'Awaiting Payment' ? 'bg-orange-500/10 text-orange-500' :
+                          booking.status === 'Payment Confirmed' ? 'bg-blue-500/10 text-blue-500' :
+                          booking.status === 'Disputed' ? 'bg-red-500/10 text-red-500' :
                           booking.status === 'Pending' ? 'bg-yellow-500/10 text-yellow-500' :
                             'bg-red-500/10 text-red-500'
                           }`}>
                           {booking.status === 'Completed' && <CheckCircle2 size={10} />}
                           {booking.status === 'Awaiting Confirmation' && <Clock size={10} />}
-                          {booking.status === 'Accepted' && <Clock size={10} />}
+                          {booking.status === 'Awaiting Payment' && <Clock size={10} />}
+                          {booking.status === 'Payment Confirmed' && <CheckCircle2 size={10} />}
+                          {booking.status === 'Disputed' && <XCircle size={10} />}
                           {booking.status === 'Pending' && <Clock size={10} />}
                           {booking.status === 'Cancelled' && <XCircle size={10} />}
                           {booking.status}
                         </span>
                       </td>
-                      <td className="px-8 py-6">
+                      <td className="px-8 py-6 space-y-2">
                         {booking.status === 'Pending' && (
                           <button
                             onClick={() => handleCancelBooking(booking.id)}
-                            className="text-[10px] font-black uppercase tracking-widest text-red-500 hover:text-red-400 transition-colors bg-red-500/5 px-3 py-1.5 rounded-lg border border-red-500/20"
+                            className="block text-[10px] font-black uppercase tracking-widest text-red-500 hover:text-red-400 transition-colors bg-red-500/5 px-3 py-1.5 rounded-lg border border-red-500/20"
                           >
                             Cancel
                           </button>
                         )}
-                        {booking.status === 'Awaiting Confirmation' && (
+                        {booking.status === 'Awaiting Payment' && (
                           <button
-                            onClick={() => handleConfirmCompletion(booking.id)}
-                            className="text-[10px] font-black uppercase tracking-widest text-purple-300 hover:text-purple-200 transition-colors bg-purple-500/10 px-3 py-1.5 rounded-lg border border-purple-500/30"
+                            onClick={() => navigate(`/payment?bookingId=${booking.id}`)}
+                            className="block text-[10px] font-black uppercase tracking-widest text-orange-500 hover:text-orange-400 transition-colors bg-orange-500/10 px-3 py-1.5 rounded-lg border border-orange-500/30"
                           >
-                            Confirm Completion
+                            Pay Now
+                          </button>
+                        )}
+                        {booking.status === 'Awaiting Confirmation' && (
+                          <div className="space-y-2">
+                            <div className="text-[10px] bg-purple-500/10 border border-purple-500/30 rounded-lg p-2 text-purple-300">
+                              <p className="font-bold">OTP: {booking.otp || 'Waiting...'}</p>
+                              <p className="text-[9px] text-purple-400">Share with provider</p>
+                            </div>
+                            <button
+                              onClick={() =>
+                                setReviewTarget({
+                                  bookingId: booking.id,
+                                  providerId: booking.providerId,
+                                  providerName: booking.provider,
+                                })
+                              }
+                              className="block w-full text-[10px] font-black uppercase tracking-widest text-red-500 hover:text-red-400 transition-colors bg-red-500/5 px-3 py-1.5 rounded-lg border border-red-500/20"
+                            >
+                              Dispute
+                            </button>
+                          </div>
+                        )}
+                        {booking.status === 'Disputed' && (
+                          <button
+                            disabled
+                            className="text-[10px] font-black uppercase tracking-widest text-gray-400 bg-gray-500/5 px-3 py-1.5 rounded-lg border border-gray-500/20 cursor-not-allowed"
+                          >
+                            Under Review
                           </button>
                         )}
                         {booking.status === 'Completed' && (

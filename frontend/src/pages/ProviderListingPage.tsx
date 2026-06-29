@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Star, MapPin, ChevronLeft, Search, Filter } from 'lucide-react';
 import { services } from '../data/mockData';
 import { providerApi } from '../services/apiClient.js';

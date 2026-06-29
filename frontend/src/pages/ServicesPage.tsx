@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, Filter, ChevronRight } from 'lucide-react';
 import { services } from '../data/mockData';
 import Card from '../components/ui/Card';

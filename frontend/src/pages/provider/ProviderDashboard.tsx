@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useSearchParams } from 'react-router';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { 
   CheckCircle2, 
@@ -40,6 +40,8 @@ const ProviderDashboard: React.FC = () => {
   const [payoutSaving, setPayoutSaving] = useState(false);
   const [payoutMessage, setPayoutMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [otpInput, setOtpInput] = useState<{ [key: string]: string }>({});
+  const [flagReason, setFlagReason] = useState<{ [key: string]: string }>({});
   const isMountedRef = useRef(true);
 
   const formatBookingDate = (value: string | Date) => {
@@ -187,10 +189,44 @@ const ProviderDashboard: React.FC = () => {
     }
   };
 
+  const handleVerifyOtp = async (bookingId: string) => {
+    try {
+      const otp = otpInput[bookingId];
+      if (!otp || otp.length === 0) {
+        alert('Please enter OTP');
+        return;
+      }
+      await bookingApi.verifyCompletionOtp(bookingId, otp);
+      setOtpInput(prev => ({ ...prev, [bookingId]: '' }));
+      alert('OTP verified successfully! Payment released.');
+      await fetchBookings();
+    } catch (err: any) {
+      alert(err.message || 'Failed to verify OTP');
+    }
+  };
+
+  const handleFlagUser = async (bookingId: string) => {
+    try {
+      const reason = flagReason[bookingId];
+      if (!reason || reason.length === 0) {
+        alert('Please provide a reason for flagging');
+        return;
+      }
+      await bookingApi.flagUser(bookingId, reason);
+      setFlagReason(prev => ({ ...prev, [bookingId]: '' }));
+      alert('User flagged. Admin will review.');
+      await fetchBookings();
+    } catch (err: any) {
+      alert(err.message || 'Failed to flag user');
+    }
+  };
+
   const pendingRequests = bookings.filter(b => b.status === 'pending');
-  const activeBookings = bookings.filter(b => b.status === 'accepted');
+  const awaitingPaymentBookings = bookings.filter(b => b.status === 'accepted');
+  const activeBookings = bookings.filter(b => b.status === 'payment_held');
+  const inProgressBookings = bookings.filter(b => b.status === 'service_completed_by_provider');
   const completedHistory = bookings.filter(
-    b => b.status === 'completed' || b.status === 'service_completed_by_provider'
+    b => b.status === 'completed'
   );
   const activeTab = searchParams.get('tab') || 'dashboard';
 
@@ -227,13 +263,17 @@ const ProviderDashboard: React.FC = () => {
           <ClipboardList className="text-[#9CA3AF]" size={24} />
           <h2 className="text-xl font-bold">Overview</h2>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card className="p-6 border border-white/5 bg-[#111827]">
             <p className="text-xs uppercase tracking-widest text-[#9CA3AF]">Pending Requests</p>
             <p className="text-3xl font-black text-yellow-500 mt-2">{pendingRequests.length}</p>
           </Card>
           <Card className="p-6 border border-white/5 bg-[#111827]">
-            <p className="text-xs uppercase tracking-widest text-[#9CA3AF]">Active Bookings</p>
+            <p className="text-xs uppercase tracking-widest text-[#9CA3AF]">Awaiting Payment</p>
+            <p className="text-3xl font-black text-orange-500 mt-2">{awaitingPaymentBookings.length}</p>
+          </Card>
+          <Card className="p-6 border border-white/5 bg-[#111827]">
+            <p className="text-xs uppercase tracking-widest text-[#9CA3AF]">In Progress</p>
             <p className="text-3xl font-black text-blue-500 mt-2">{activeBookings.length}</p>
           </Card>
           <Card className="p-6 border border-white/5 bg-[#111827]">
@@ -323,10 +363,55 @@ const ProviderDashboard: React.FC = () => {
       )}
 
       {activeTab === 'bookings' && (
+      <>
+      <section className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Clock className="text-orange-500" size={24} />
+          <h2 className="text-xl font-bold">Awaiting Payment ({awaitingPaymentBookings.length})</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {awaitingPaymentBookings.map((booking) => (
+            <Card key={booking._id} className="p-6 space-y-4 border border-white/5 bg-[#111827]">
+              <div className="flex justify-between items-start">
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-white">{booking.user?.fullname || booking.userId?.fullname || 'Customer'}</p>
+                  <span className="text-xs text-[#9CA3AF]">{booking.provider?.serviceType || booking.providerId?.serviceType || 'Service'}</span>
+                </div>
+                <span className="bg-orange-500/10 text-orange-500 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
+                  Pending Payment
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 text-sm text-[#9CA3AF]">
+                <Phone size={14} />
+                <span>{booking.user?.phone || booking.userId?.phone || 'No phone'}</span>
+              </div>
+
+              <div className="flex items-center gap-2 text-sm text-[#9CA3AF]">
+                <Calendar size={14} />
+                <span>Scheduled for: {formatBookingDate(booking.bookingDate)}</span>
+              </div>
+
+              <div className="flex items-center gap-2 text-sm text-[#9CA3AF]">
+                <Clock size={14} />
+                <span>Time: {formatBookingTime(booking.bookingDate)}</span>
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                <p className="text-xs font-bold text-yellow-400">Waiting for customer to complete payment...</p>
+              </div>
+            </Card>
+          ))}
+          {awaitingPaymentBookings.length === 0 && (
+            <p className="text-[#4B5563] text-sm italic">No bookings awaiting payment.</p>
+          )}
+        </div>
+      </section>
+
       <section className="space-y-6">
         <div className="flex items-center gap-3">
           <CheckCircle2 className="text-blue-500" size={24} />
-          <h2 className="text-xl font-bold">Active Bookings ({activeBookings.length})</h2>
+          <h2 className="text-xl font-bold">In Progress ({activeBookings.length})</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {activeBookings.map((booking) => (
@@ -337,7 +422,7 @@ const ProviderDashboard: React.FC = () => {
                   <span className="text-xs text-[#9CA3AF]">{booking.provider?.serviceType || booking.providerId?.serviceType || 'Service'}</span>
                 </div>
                 <span className="bg-blue-500/10 text-blue-500 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
-                  Accepted
+                  Payment Done
                 </span>
               </div>
 
@@ -368,17 +453,85 @@ const ProviderDashboard: React.FC = () => {
                 </div>
               )}
 
-              <Button 
+              <Button
                 className="w-full bg-[#2563EB] hover:bg-[#1D4ED8] h-11 text-sm font-bold mt-2"
                 onClick={() => handleAction(booking._id, 'complete')}
               >
-                Mark Complete
+                Mark Done
               </Button>
             </Card>
           ))}
           {activeBookings.length === 0 && (
-            <p className="text-[#4B5563] text-sm italic">No active bookings currently.</p>
+            <p className="text-[#4B5563] text-sm italic">No in-progress bookings.</p>
           )}
+        </div>
+      </section>
+      </>
+      )}
+
+      {activeTab === 'bookings' && inProgressBookings.length > 0 && (
+      <section className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Clock className="text-purple-500" size={24} />
+          <h2 className="text-xl font-bold">Awaiting Confirmation ({inProgressBookings.length})</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {inProgressBookings.map((booking) => (
+            <Card key={booking._id} className="p-6 space-y-4 border border-white/5 bg-[#111827]">
+              <div className="flex justify-between items-start">
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-white">{booking.user?.fullname || booking.userId?.fullname || 'Customer'}</p>
+                  <span className="text-xs text-[#9CA3AF]">{booking.provider?.serviceType || booking.providerId?.serviceType || 'Service'}</span>
+                </div>
+                <span className="bg-purple-500/10 text-purple-400 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
+                  Awaiting OTP
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 text-sm text-[#9CA3AF]">
+                <Phone size={14} />
+                <span>{booking.user?.phone || booking.userId?.phone || 'No phone'}</span>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-[#9CA3AF] uppercase tracking-widest mb-2">Enter OTP from customer</label>
+                  <input
+                    type="text"
+                    placeholder="6-digit OTP"
+                    maxLength={6}
+                    value={otpInput[booking._id] || ''}
+                    onChange={(e) => setOtpInput(prev => ({ ...prev, [booking._id]: e.target.value }))}
+                    className="w-full h-10 bg-[#0F172A] border border-[#334155] px-3 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                  />
+                </div>
+
+                <button
+                  onClick={() => handleVerifyOtp(booking._id)}
+                  className="w-full h-10 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-bold text-white transition-colors"
+                >
+                  Verify & Release Payment
+                </button>
+
+                <div className="border-t border-white/10 pt-3">
+                  <label className="block text-xs font-bold text-[#9CA3AF] uppercase tracking-widest mb-2">Flag non-cooperative user</label>
+                  <input
+                    type="text"
+                    placeholder="Reason for flagging..."
+                    value={flagReason[booking._id] || ''}
+                    onChange={(e) => setFlagReason(prev => ({ ...prev, [booking._id]: e.target.value }))}
+                    className="w-full h-10 bg-[#0F172A] border border-[#334155] px-3 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 mb-2"
+                  />
+                  <button
+                    onClick={() => handleFlagUser(booking._id)}
+                    className="w-full h-10 bg-red-600 hover:bg-red-700 rounded-lg text-sm font-bold text-white transition-colors"
+                  >
+                    Flag User
+                  </button>
+                </div>
+              </div>
+            </Card>
+          ))}
         </div>
       </section>
       )}

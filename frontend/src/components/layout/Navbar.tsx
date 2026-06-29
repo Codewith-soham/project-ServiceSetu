@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, useNavigate, useLocation, useSearchParams } from 'react-router';
+import { NavLink, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../ui/Button';
 import {

@@ -37,15 +37,16 @@ const bookingSchema = new mongoose.Schema({
   status: {
   type: String,
   enum: [
-    "awaiting_payment",
     "pending",
     "accepted",
+    "payment_held",
     "rejected_by_provider",
     "service_completed_by_provider",
+    "disputed",
     "completed",
     "cancelled_by_user",
   ],
-  default: "awaiting_payment",
+  default: "pending",
 },
 
   providerCompletedAt: {
@@ -146,6 +147,22 @@ otpExpiresAt: {
 isOtpVerified: {
   type: Boolean,
   default: false,
+},
+
+disputeReason: {
+  type: String,
+},
+
+disputedAt: {
+  type: Date,
+},
+
+providerFlaggedAt: {
+  type: Date,
+},
+
+providerFlagReason: {
+  type: String,
 },
 
 }, { timestamps: true }); 
