@@ -1203,40 +1203,6 @@ const proxyQrImage = asyncHandler(async (req, res) => {
   }
 });
 
-// Proxy QR image endpoint
-const proxyQrImage = asyncHandler(async (req, res) => {
-  const { bookingId } = req.params;
-
-  const booking = await Booking.findById(bookingId);
-  if (!booking) throw new ApiError(404, "Booking not found");
-
-  if (booking.user.toString() !== req.user._id.toString()) {
-    throw new ApiError(403, "Unauthorized");
-  }
-
-  if (!booking.razorpayQrImageUrl) {
-    throw new ApiError(404, "QR image not found");
-  }
-
-  try {
-    const response = await axios.get(booking.razorpayQrImageUrl, {
-      responseType: "arraybuffer",
-      timeout: 15000,
-    });
-
-    const contentType = response.headers?.["content-type"] || "image/png";
-    res.set("Content-Type", contentType);
-    res.set("Cache-Control", "public, max-age=3600");
-    return res.send(response.data);
-  } catch (error) {
-    console.error("[payments.proxyQrImage:error]", {
-      message: error?.message,
-      bookingId,
-    });
-    throw new ApiError(500, "Failed to fetch QR image");
-  }
-});
-
 // Flag non-cooperative user
 const flagUser = asyncHandler(async (req, res) => {
   const { bookingId } = req.params;
