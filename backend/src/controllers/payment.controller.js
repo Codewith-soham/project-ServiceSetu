@@ -4,6 +4,7 @@ import { ApiError } from "../utils/ApiError.js";
 import crypto from "crypto";
 import axios from "axios";
 import mongoose from "mongoose";
+import mongoose from "mongoose";
 
 import { getRazorpayInstance, calculateFees, verifyRazorpaySignature } from "../utils/razorpay.util.js";
 import { sendNotification, NOTIFICATION_EVENTS } from "../socket/notification.js";
@@ -199,6 +200,11 @@ const createPaymentOrderLegacy = asyncHandler(async (req,res) => {
     if(!providerId || !bookingDate){
         throw new ApiError(400,'Provider ID and booking date are required');
     }
+  if (typeof providerId !== "string" || !mongoose.Types.ObjectId.isValid(providerId)) {
+    throw new ApiError(400, "Invalid provider ID");
+  }
+  const safeProviderId = new mongoose.Types.ObjectId(providerId);
+
 
   if (typeof providerId !== "string" || !mongoose.Types.ObjectId.isValid(providerId.trim())) {
     throw new ApiError(400, "Invalid provider ID");
@@ -209,7 +215,7 @@ const createPaymentOrderLegacy = asyncHandler(async (req,res) => {
   if (Number.isNaN(bookingDateValue.getTime())) {
     throw new ApiError(400, "Invalid booking date");
   }
-
+  const provider = await ServiceProvider.findById(safeProviderId);
   if (bookingDateValue < new Date()) {
     throw new ApiError(400, "Booking date cannot be in the past");
   }
@@ -234,7 +240,7 @@ const createPaymentOrderLegacy = asyncHandler(async (req,res) => {
       ? providerPrice
       : 500;
 
-  // Allow multiple bookings per day, but block collisions in the same 30-min slot.
+    provider: safeProviderId,
   const slotStart = new Date(bookingDateValue);
   const slotEnd = new Date(bookingDateValue);
   slotEnd.setMinutes(slotEnd.getMinutes() + 29, 59, 999);
