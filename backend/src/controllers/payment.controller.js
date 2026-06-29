@@ -3,6 +3,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { ApiError } from "../utils/ApiError.js";
 import crypto from "crypto";
 import axios from "axios";
+import mongoose from "mongoose";
 
 import { getRazorpayInstance, calculateFees, verifyRazorpaySignature } from "../utils/razorpay.util.js";
 import { sendNotification, NOTIFICATION_EVENTS } from "../socket/notification.js";
@@ -199,6 +200,11 @@ const createPaymentOrderLegacy = asyncHandler(async (req,res) => {
         throw new ApiError(400,'Provider ID and booking date are required');
     }
 
+  if (typeof providerId !== "string" || !mongoose.Types.ObjectId.isValid(providerId.trim())) {
+    throw new ApiError(400, "Invalid provider ID");
+  }
+  const validatedProviderId = providerId.trim();
+
   const bookingDateValue = new Date(bookingDate);
   if (Number.isNaN(bookingDateValue.getTime())) {
     throw new ApiError(400, "Invalid booking date");
@@ -209,7 +215,7 @@ const createPaymentOrderLegacy = asyncHandler(async (req,res) => {
   }
 
      // Get provider
-  const provider = await ServiceProvider.findById(providerId);
+  const provider = await ServiceProvider.findById(validatedProviderId);
   if (!provider) {
     throw new ApiError(404, "Provider not found");
   }
