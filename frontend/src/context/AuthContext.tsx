@@ -95,10 +95,7 @@ function deriveUsernameFromSignupForm(userData: {
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<AuthUser | null>(() => {
-    const savedUser = localStorage.getItem('serviceSetu_user');
-    return savedUser ? JSON.parse(savedUser) : null;
-  });
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [isAuthenticating, setIsAuthenticating] = useState(true);
   const didFetchProfileRef = useRef(false);
 
@@ -139,11 +136,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (user) {
-      localStorage.setItem('serviceSetu_user', JSON.stringify(user));
-      console.debug('[auth] localStorage sync', { id: user.id, role: user.role });
+      console.debug('[auth] user in-memory sync', { id: user.id, role: user.role });
     } else {
-      localStorage.removeItem('serviceSetu_user');
-      console.debug('[auth] localStorage cleared');
+      console.debug('[auth] user in-memory cleared');
     }
   }, [user]);
 
