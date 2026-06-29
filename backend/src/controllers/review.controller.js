@@ -56,7 +56,7 @@ const addReview = asyncHandler(async (req, res) => {
         throw err;
     }
 
-    const reviews = await Review.find({ provider: providerId }).select("rating");
+    const reviews = await Review.find({ provider: { $eq: providerId } }).select("rating");
     const totalReviews = reviews.length;
     const avgRating = reviews.reduce((acc, r) => acc + r.rating, 0) / totalReviews;
 
@@ -79,9 +79,9 @@ const getProviderReviews = asyncHandler(async (req, res) => {
     const limitNum = Math.max(1, parseInt(limit) || 10);
     const skip = (pageNum - 1) * limitNum;
 
-    const total = await Review.countDocuments({ provider: providerId });
+    const total = await Review.countDocuments({ provider: { $eq: providerId } });
 
-    const reviews = await Review.find({ provider: providerId })
+    const reviews = await Review.find({ provider: { $eq: providerId } })
         .populate("user", "fullname")
         .sort({ createdAt: -1 })
         .skip(skip)
