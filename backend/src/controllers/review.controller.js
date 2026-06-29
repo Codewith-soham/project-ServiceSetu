@@ -20,16 +20,16 @@ const addReview = asyncHandler(async (req, res) => {
 
     const existingBookingReview = await Review.findOne({
         user: req.user._id,
-        booking: bookingId,
+        booking: { $eq: bookingId },
     });
     if (existingBookingReview) {
         throw new ApiError(400, "You have already reviewed this booking");
     }
 
     const booking = await Booking.findOne({
-        _id: bookingId,
+        _id: { $eq: bookingId },
         user: req.user._id,
-        provider: providerId
+        provider: { $eq: providerId }
     });
     if (!booking) {
         throw new ApiError(404, "Booking not found");
