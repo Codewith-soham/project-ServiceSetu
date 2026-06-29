@@ -526,7 +526,7 @@ const createPaymentQr = asyncHandler(async (req, res) => {
     booking.status = booking.status === "accepted" ? "awaiting_payment" : booking.status;
     await booking.save();
 
-    const qrImageDataUrl = await fetchImageDataUrl(qr.image_url);
+    const qrImageDataUrl = await fetchImageDataUrl(booking.razorpayQrImageUrl);
 
     return res.status(200).json(
       new ApiResponse(
@@ -731,7 +731,7 @@ const createPaymentQr = asyncHandler(async (req, res) => {
         {
           bookingId: existingBooking._id,
           qrCodeId: qr.id,
-          qrImageUrl: `/api/v1/payments/qr-image/${booking._id}`,
+          qrImageUrl: `/api/v1/payments/qr-image/${existingBooking._id}`,
           qrImageDataUrl: null,
           qrCloseBy: existingBooking.razorpayQrCloseBy || null,
           amount: Math.round(amountToCharge * 100),
@@ -1195,7 +1195,7 @@ const proxyQrImage = asyncHandler(async (req, res) => {
     res.set("Cache-Control", "public, max-age=3600");
     return res.send(response.data);
   } catch (error) {
-    console.warn("[payments.proxyQrImage:error]", {
+    console.error("[payments.proxyQrImage:error]", {
       message: error?.message,
       bookingId,
     });
