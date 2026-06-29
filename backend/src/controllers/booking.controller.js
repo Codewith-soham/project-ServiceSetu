@@ -7,6 +7,7 @@ import { ServiceProvider } from "../models/serviceProvider.model.js";
 import { Service } from "../models/service.model.js";
 import { sendNotification, NOTIFICATION_EVENTS } from "../socket/notification.js";
 import { calculateFees } from "../utils/razorpay.util.js";
+import { isValidObjectId } from "mongoose";
 
 const emitBookingUpdateToParticipants = async (booking, action) => {
     if (!booking?._id || !booking?.user || !booking?.provider) {
@@ -37,6 +38,10 @@ const createBooking = asyncHandler(async (req, res) => {
 
     if (!providerId || !bookingDate) {
         throw new ApiError(400, "All required fields must be provided");
+    }
+
+    if (typeof providerId !== "string" || !isValidObjectId(providerId)) {
+        throw new ApiError(400, "Invalid provider id");
     }
 
     const bookingDateValue = new Date(bookingDate);
