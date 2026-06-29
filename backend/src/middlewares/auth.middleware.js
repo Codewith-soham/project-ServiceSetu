@@ -5,10 +5,9 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 
 export const verifyToken = asyncHandler(async (req, res, next) => {
 
-    const bearerToken = req.headers?.authorization?.startsWith("Bearer ")
+    const token = req.headers?.authorization?.startsWith("Bearer ")
         ? req.headers.authorization.split(" ")[1]
         : null;
-    const token = req.cookies?.accessToken || bearerToken;
 
     if (!token) {
         throw new ApiError(401, "Unauthorized: No token provided");
@@ -39,3 +38,7 @@ export const authorizeRoles = (...roles) => (req, res, next) => {
 
     return next();
 };
+
+// Backward-compatible aliases used by some route modules.
+export const verifyJWT = verifyToken;
+export const requireRole = (...roles) => authorizeRoles(...roles);

@@ -24,23 +24,30 @@ const bookingSchema = new mongoose.Schema({
     default: ""
   },
 
+  address: {
+    type: String,
+    default: ""
+  },
+
   price: {
     type: Number,
     required: true
   }, 
 
   status: {
-    type: String,
-    enum: [
-      "pending",
-      "accepted",
-      "rejected_by_provider",
-      "cancelled_by_user",
-      "service_completed_by_provider",
-      "completed"
-    ],
-    default: "pending"
-  },
+  type: String,
+  enum: [
+    "pending",
+    "accepted",
+    "payment_held",
+    "rejected_by_provider",
+    "service_completed_by_provider",
+    "disputed",
+    "completed",
+    "cancelled_by_user",
+  ],
+  default: "pending",
+},
 
   providerCompletedAt: {
     type: Date
@@ -52,9 +59,112 @@ const bookingSchema = new mongoose.Schema({
 
   paymentStatus: {
     type: String,
-    enum: ["pending", "held", "released", "refunded"],
+    enum: ["pending", "paid", "held", "released", "refunded"],
     default: "pending"
-  }
+  },
+
+  platformFee: {
+  type: Number,
+  required: true,
+},
+
+providerAmount: {
+  type: Number,
+  required: true,
+},
+
+razorpayOrderId: {
+  type: String,
+},
+
+razorpayPaymentId: {
+  type: String,
+},
+
+razorpaySignature: {
+  type: String,
+},
+
+razorpayQrCodeId: {
+  type: String,
+},
+
+razorpayQrImageUrl: {
+  type: String,
+},
+
+razorpayQrCloseBy: {
+  type: Date,
+},
+
+amountToCharge: {
+  type: Number,
+  default: 0,
+},
+
+payoutStatus: {
+  type: String,
+  enum: ["not_required", "pending", "processing", "successful", "failed"],
+  default: "not_required",
+},
+
+payoutTransferId: {
+  type: String,
+},
+
+payoutFailureReason: {
+  type: String,
+  default: "",
+},
+
+payoutProcessedAt: {
+  type: Date,
+},
+
+razorpayFee: {
+  type: Number,
+  default: 0,
+},
+
+roundUpMargin: {
+  type: Number,
+  default: 0,
+},
+
+pricingVersion: {
+  type: String,
+  default: "v1-adaptive-roundup",
+},
+
+completionOtp: {
+  type: String,
+},
+
+otpExpiresAt: {
+  type: Date,
+},
+
+isOtpVerified: {
+  type: Boolean,
+  default: false,
+},
+
+disputeReason: {
+  type: String,
+},
+
+disputedAt: {
+  type: Date,
+},
+
+providerFlaggedAt: {
+  type: Date,
+},
+
+providerFlagReason: {
+  type: String,
+},
+
 }, { timestamps: true }); 
 
 export const Booking = mongoose.model("Booking", bookingSchema);

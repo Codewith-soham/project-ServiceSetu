@@ -1,264 +1,238 @@
-# ServiceSetu - Service Provider Platform
+# ServiceSetu
 
-ServiceSetu is a Node.js backend that connects users with local service providers such as maids, electricians, plumbers, and care-takers.
+ServiceSetu is a full-stack home-services platform where customers can find providers, place bookings, and track booking progress, while providers can manage requests, completion, earnings, and payout details.
 
-## Highlights
+## Current Status
 
-- Express + MongoDB backend using ES Modules
-- JWT auth with cookie or `Authorization: Bearer <token>` support
-- Role-based access (user/provider/admin)
-- Booking workflow with provider/user completion flow
-- Provider discovery with geospatial search
-- Structured MVC layout for maintainability
 
-## Tech Stack
 
-### Backend
-- Runtime: Node.js
-- Framework: Express.js
-- Database: MongoDB with Mongoose
-- Auth: JWT (jsonwebtoken) with cookies
-- Security: bcryptjs password hashing
-- Middleware: CORS, cookie-parser, built-in Express parsers
+## Recent Cleanup (April 25, 2026)
 
-### Frontend
-- Framework: React 18
-- Build Tool: Vite
-- Styling: Tailwind CSS
-- Routing: React Router
-- HTTP Client: Axios
+### Removed Unused Files
+- **Backend utilities**: `src/utils/logger.js`, `src/utils/sanitize.js`, `src/utils/validation.js` (dead code)
+- **Frontend components**: `src/components/ui/LoadingSpinner.tsx` (unused UI component)
+- **Frontend contexts**: `src/context/ThemeContext.tsx` (unused context)
+- **Empty folders**: `frontend/src/pages/auth/` directory removed
+
+### Code Quality Improvements
+- Streamlined codebase by removing 6 unused files and empty directories
+- Enhanced `.gitignore` with comprehensive build output and dependency exclusions
+- Preserved all production-ready active code
+- All core functionality remains intact and fully operational
 
 ## Project Structure
 
-```
-ServiceSetu/
-│
-├── backend/
-│   ├── src/
-│   │   ├── controllers/
-│   │   │   ├── auth.controller.js              # User registration & login
-│   │   │   ├── user.controller.js              # Profile management
-│   │   │   ├── serviceProvider.controller.js   # Provider upgrade
-│   │   │   ├── getProvider.controller.js       # Provider listing & filtering
-│   │   │   ├── booking.controller.js           # Booking management
-│   │   │   ├── publicProviderNearby.js          # Provider nearby search
-│   │   │   ├── admin.controller.js              # Admin pricing
-│   │   │   ├── review.controller.js             # Reviews & ratings
-│   │   │   └── healthcheck.controller.js        # Health check
-│   │   ├── middlewares/
-│   │   │   └── auth.middleware.js              # JWT verification
-│   │   ├── models/
-│   │   │   ├── user.model.js                   # User schema with auth
-│   │   │   ├── serviceProvider.model.js        # Provider schema
-│   │   │   ├── service.model.js                # Service types & pricing
-│   │   │   ├── booking.model.js                # Booking schema
-│   │   │   └── review.model.js                 # Reviews & ratings
-│   │   ├── routes/
-│   │   │   ├── auth.route.js                   # Auth endpoints
-│   │   │   ├── user.route.js                   # User profile endpoints
-│   │   │   ├── provider.route.js               # Provider upgrade
-│   │   │   ├── getProviders.route.js           # Provider listing & filtering
-│   │   │   ├── booking.route.js                # Booking endpoints
-│   │   │   ├── admin.route.js                  # Admin pricing
-│   │   │   ├── review.route.js                 # Reviews
-│   │   │   └── healthCheck.route.js            # Health check
-│   │   ├── utils/
-│   │   │   ├── ApiError.js                     # Error handling class
-│   │   │   ├── ApiResponse.js                  # Response formatter
-│   │   │   ├── asyncHandler.js                 # Async wrapper
-│   │   │   └── geocode.util.js                 # Address to coordinates conversion
-│   │   ├── db/
-│   │   │   └── connection.js                   # MongoDB connection
-│   │   ├── public/                             # Static files directory
-│   │   └── app.js                              # Express app configuration
-│   ├── server.js                               # Entry point
-│   ├── package.json                            # Dependencies & scripts
-│   └── .env                                    # Environment variables (not tracked)
-│
-├── frontend/
-│   ├── public/
-│   │   └── vite.svg
-│   ├── src/
-│   │   ├── assets/
-│   │   │   ├── react.svg
-│   │   │   └── servicesetulogo.png            # ServiceSetu logo
-│   │   ├── components/                         # Reusable React components
-│   │   ├── pages/
-│   │   │   └── landingPage.jsx                # Landing page with header, hero & footer
-│   │   ├── services/
-│   │   │   ├── api.js                         # API utility functions
-│   │   │   ├── auth.api.js                    # Authentication API calls
-│   │   │   └── provider.api.js                # Provider API calls
-│   │   ├── App.jsx                            # Main App component
-│   │   ├── main.jsx                           # React entry point
-│   │   └── index.css                          # Global styles
-│   ├── index.html
-│   ├── vite.config.js                         # Vite configuration
-│   ├── eslint.config.js                       # ESLint configuration
-│   ├── package.json                           # Frontend dependencies & scripts
-│   └── README.md                              # Frontend documentation
-│
-└── readme.md                                   # This file
-```
 
-## Run Locally
+## Prerequisites
 
-### Backend Setup
+- Node.js 18+
+- MongoDB 4.4+
+- npm
 
-1. Clone the repository
-   ```bash
-   git clone <repository-url>
-   cd ServiceSetu
-   ```
+## Setup
 
-2. Install dependencies
-   ```bash
-   cd backend
-   npm install
-   ```
+### 1) Install dependencies
 
-3. Create `.env` file in the backend folder with required environment variables
+Backend:
 
-4. Start the server
-   ```bash
-   npm run dev
-   ```
-
-Backend server runs at: http://localhost:8000
-
-### Frontend Setup
-
-1. Navigate to frontend folder
-   ```bash
-   cd frontend
-   ```
-
-2. Install dependencies
-   ```bash
-   npm install
-   ```
-
-3. Start the development server
-   ```bash
-   npm run dev
-   ```
-
-Frontend server runs at: http://localhost:5173 (or as shown in terminal)
-
-### Build for Production
-
-**Backend:**
 ```bash
-npm run build
+cd backend
+npm install
 ```
 
-**Frontend:**
+Frontend:
+
 ```bash
+cd ../frontend
+npm install
+```
+
+### 2) Configure backend environment
+
+Create `backend/.env`:
+
+```env
+MONGO_URL=mongodb://localhost:27017/servicetu
+PORT=8000
+CORS_ORIGIN=http://localhost:5173
+NODE_ENV=development
+
+ACCESS_TOKEN_SECRET=your_access_secret
+ACCESS_TOKEN_EXPIRY=1d
+REFRESH_TOKEN_SECRET=your_refresh_secret
+REFRESH_TOKEN_EXPIRY=7d
+
+RAZORPAY_KEY_ID=rzp_test_xxxxx
+RAZORPAY_KEY_SECRET=xxxxxxxx
+
+PLATFORM_COMMISSION_RATE=0.02
+RAZORPAY_FEE_RATE=0.02
+RAZORPAY_FIXED_FEE=0
+PRICE_ROUND_TO=5
+MIN_ROUND_UP_STEPS=1
+MAX_MARKUP_RATE=0.12
+
+CLOUDINARY_CLOUD_NAME=xxxx
+CLOUDINARY_API_KEY=xxxx
+CLOUDINARY_API_SECRET=xxxx
+```
+
+Optional frontend environment (`frontend/.env`):
+
+```env
+VITE_API_BASE_URL=http://localhost:8000/api
+```
+
+## Run
+
+Backend:
+
+```bash
+cd backend
+npm run dev
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm run dev
+```
+
+Default URLs:
+
+- Backend API base: `http://localhost:8000/api/v1`
+- Frontend: `http://localhost:5173`
+
+## Tech Stack
+
+Backend:
+
+- Node.js + Express 5
+- MongoDB + Mongoose
+- JWT auth (access/refresh)
+- Socket.IO
+- Razorpay SDK
+- Cloudinary uploads
+
+Frontend:
+
+- React + TypeScript + Vite
+- React Router
+- Tailwind CSS
+- Socket.IO client
+
+## Auth and Roles
+
+- `user` can browse providers, create/cancel bookings, confirm completion, review provider.
+- `provider` can accept/reject bookings, mark completion, manage payouts and earnings.
+- Protected APIs use JWT from cookie or `Authorization: Bearer <token>`.
+
+## Realtime Booking Updates
+
+Socket server is initialized in backend and clients connect with credentials.
+
+- Event: `booking_updated`
+- Emitted when booking state changes on create/accept/reject/cancel/complete actions.
+- User and Provider dashboards subscribe to this event and refetch bookings automatically.
+
+Result: dashboard booking states update without manual page refresh.
+
+## Key API Endpoints
+
+Auth:
+
+- `POST /auth/register`
+- `POST /auth/login`
+- `POST /auth/logout`
+- `POST /auth/refresh-token`
+
+User:
+
+- `GET /users/profile`
+- `PUT /users/profile/update`
+- `PUT /users/change-password`
+
+Provider and discovery:
+
+- `POST /providers/become`
+- `GET /providers/nearby`
+- `GET /providers/payout-details`
+- `PUT /providers/payout-details`
+- `GET /getProviders/provider`
+
+Bookings:
+
+- `POST /bookings/create`
+- `GET /bookings/user-bookings`
+- `PATCH /bookings/:bookingId/cancel`
+- `PATCH /bookings/:bookingId/confirm-completion`
+- `GET /bookings/provider`
+- `GET /bookings/provider/earnings`
+- `POST /bookings/:id/accept`
+- `POST /bookings/:id/reject`
+- `POST /bookings/:id/complete`
+
+Payments (backend available):
+
+- `GET /payments/status`
+- `POST /payments/create-order`
+- `POST /payments/create-qr`
+- `POST /payments/verify`
+- `GET /payments/bookings/:bookingId/status`
+- `PATCH /payments/:bookingId/accept`
+- `PATCH /payments/:bookingId/reject`
+- `PATCH /payments/:bookingId/refund`
+- `PATCH /payments/:bookingId/verify-otp`
+
+Reviews:
+
+- `POST /reviews`
+- `GET /reviews/:providerId`
+
+Admin:
+
+- `PUT /admin/services/price`
+
+## Booking Lifecycle (current)
+
+Primary states used in booking model:
+
+- `awaiting_payment`
+- `pending`
+- `accepted`
+- `service_completed_by_provider`
+- `completed`
+- `cancelled_by_user`
+- `rejected_by_provider`
+
+Common path in active UI:
+
+1. Customer books service.
+2. Provider accepts/rejects.
+3. Provider marks service complete.
+4. Customer confirms completion.
+5. Both dashboards receive realtime update.
+
+## Notes
+
+- Frontend `PaymentPage` is intentionally disabled right now.
+- Backend payment and payout APIs are still implemented for progressive rollout.
+- Some legacy booking endpoints still exist for compatibility.
+
+## Scripts
+
+Backend (`backend/`):
+
+```bash
+npm run dev
+npm test
+```
+
+Frontend (`frontend/`):
+
+```bash
+npm run dev
 npm run build
+npm run preview
 ```
-
-## API Endpoints
-
-Base URL: `/api/v1`
-
-Auth tokens are accepted via `accessToken` cookie or `Authorization: Bearer <token>`.
-
-### Frontend Features
-
-**Landing Page** (`/`)
-- Responsive navigation header with ServiceSetu logo
-- Hero section highlighting service discovery
-- Call-to-action button for user signup
-- Footer with copyright information
-- Mobile-friendly design with Tailwind CSS
-
-### Public Routes
-
-Health Check
-- `GET /healthCheck` - Server health status
-- `GET /healthCheck/test` - Test endpoint
-
-Authentication
-- `POST /auth/register` - Register new user
-- `POST /auth/login` - User login
-
-Service Providers
-- `GET /getProviders/provider` - Get all approved providers
-- `GET /getProviders/provider?serviceType=maid` - Filter by service type
-
-Nearby Providers
-- `GET /providers/nearby?lat=18.52&lon=73.85&radius=2000&serviceType=maid` - Providers within radius (meters)
-
-Reviews
-- `GET /reviews/:providerId` - Get provider reviews
-
-### Protected Routes (Requires Authentication)
-
-User Profile
-- `GET /users/profile` - Get current user profile
-- `PUT /users/profile/update` - Update user profile
-- `PUT /users/change-password` - Change password
-
-Provider Management
-- `POST /providers/become` - Upgrade user to provider
-
-Booking Management
-- `POST /bookings/create` - Create a booking
-- `PATCH /bookings/:bookingId/status` - Provider updates booking status
-- `GET /bookings/user-bookings` - User booking history
-- `GET /bookings/provider-bookings` - Provider booking queue
-- `PATCH /bookings/:bookingId/cancel` - User cancels a booking
-- `PATCH /bookings/:bookingId/confirm-completion` - User confirms completion
-- `PATCH /bookings/:bookingId/complete-by-provider` - Provider marks completed
-
-Reviews
-- `POST /reviews` - Add a review (user)
-
-Admin
-- `PUT /admin/services/price` - Update service pricing (admin)
-
-## Utilities & Features
-
-### Geocoding
-- Address-to-coordinates conversion via `getCoordinatesFromAddress()` utility
-- Enables location-based provider discovery and proximity filtering
-- Uses external geocoding API to convert provider addresses to latitude/longitude
-
-## Upcoming Features
-
-### Backend
-- Admin dashboard for provider approval and analytics
-- Provider earnings and performance metrics
-- Booking notifications and reminders
-- Payment integration
-- Reviews and rating system
-- Advanced search and filtering
-
-### Frontend
-- User authentication pages (Login/Register)
-- Service provider discovery and filtering
-- Booking system UI
-- User profile management
-- Reviews and ratings display
-- Provider dashboard
-- Search and location-based filtering
-- Payment processing integration
-
-## Development Notes
-
-### Frontend Development
-- Uses Tailwind CSS for styling
-- React Router for page navigation
-- Axios for API calls
-- Vite for fast development and builds
-- ESLint for code quality
-
-### Environment Variables (Frontend)
-Configure in `frontend/.env` or `frontend/.env.local`:
-```
-VITE_API_BASE_URL=http://localhost:8000/api/v1
-```
-
-## Developer
-
-Soham Ghadge

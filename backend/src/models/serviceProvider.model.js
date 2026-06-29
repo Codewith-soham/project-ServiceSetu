@@ -30,6 +30,10 @@ const serviceProviderSchema = new mongoose.Schema({
         default: false
     },
 
+    address: {
+        type: String
+    },
+
     rating: {
         type: Number,
         default: 0
@@ -39,18 +43,63 @@ const serviceProviderSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
+
+    pricing: {
+        type: Number,
+        default: 0
+    },
+
+    payoutDetails: {
+        accountHolderName: {
+            type: String,
+            default: ""
+        },
+        accountNumber: {
+            type: String,
+            default: ""
+        },
+        ifscCode: {
+            type: String,
+            default: ""
+        },
+        bankName: {
+            type: String,
+            default: ""
+        },
+        upiId: {
+            type: String,
+            default: ""
+        },
+        preferredMethod: {
+            type: String,
+            enum: ["bank", "upi"],
+            default: "bank"
+        },
+        isVerified: {
+            type: Boolean,
+            default: false
+        },
+        updatedAt: {
+            type: Date
+        }
+    },
+
+    image: {
+        type: String,
+        default: ""
+    },
     
     location: {
         type: {
             type: String,
             enum: ['Point'],
-            default: 'Point'
+            default: 'Point',
+            required: true
+        },
+        coordinates: {
+            type: [Number], // [longitude, latitude]
+            required: true
         }
-    },
-    
-    coordinates: {
-        type: [Number], // [longitude, latitude]
-        required: true
     }
 
 }, { timestamps: true });

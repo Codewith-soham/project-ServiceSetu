@@ -6,60 +6,272 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { Booking } from "../models/booking.model.js";
 import { getCoordinatesFromAddress } from "../utils/geocode.util.js";
+import mongoose from "mongoose";
+import { deleteCloudinaryAsset, uploadBufferToCloudinary } from "../utils/cloudinary.util.js";
+
+const maskAccountNumber = (accountNumber = "") => {
+    const value = String(accountNumber).trim();
+    if (!value) {
+        return "";
+    }
+
+    if (value.length <= 4) {
+        return value;
+    }
+
+    return `****${value.slice(-4)}`;
+};
+
+const getPayoutDetails = asyncHandler(async (req, res) => {
+    const provider = await ServiceProvider.findOne({ user: req.user._id }).lean();
+
+    if (!provider) {
+        throw new ApiError(404, "Provider profile not found");
+    }
+
+    const payoutDetails = provider.payoutDetails || {};
+
+    return res.status(200).json(
+        new ApiResponse(200, {
+            payoutDetails: {
+                accountHolderName: payoutDetails.accountHolderName || "",
+                accountNumber: maskAccountNumber(payoutDetails.accountNumber || ""),
+                ifscCode: payoutDetails.ifscCode || "",
+                bankName: payoutDetails.bankName || "",
+                upiId: payoutDetails.upiId || "",
+                preferredMethod: payoutDetails.preferredMethod || "bank",
+                isVerified: Boolean(payoutDetails.isVerified),
+                updatedAt: payoutDetails.updatedAt || null,
+            },
+        }, "Payout details retrieved successfully")
+    );
+});
+
+const updatePayoutDetails = asyncHandler(async (req, res) => {
+    const {
+        accountHolderName,
+        accountNumber,
+        ifscCode,
+        bankName,
+        upiId,
+        preferredMethod,
+    } = req.body;
+
+    const normalizedAccountHolderName = String(accountHolderName || "").trim();
+    const normalizedAccountNumber = String(accountNumber || "").trim();
+    const normalizedIfscCode = String(ifscCode || "").trim().toUpperCase();
+    const normalizedBankName = String(bankName || "").trim();
+    const normalizedUpiId = String(upiId || "").trim();
+    const normalizedPreferredMethod = String(preferredMethod || "bank").trim().toLowerCase();
+
+    if (!normalizedAccountHolderName || !normalizedAccountNumber || !normalizedIfscCode || !normalizedBankName) {
+        throw new ApiError(400, "Account holder name, account number, IFSC code, and bank name are required");
+    }
+
+    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(normalizedIfscCode)) {
+        throw new ApiError(400, "Invalid IFSC code");
+    }
+
+    if (normalizedPreferredMethod !== "bank" && normalizedPreferredMethod !== "upi") {
+        throw new ApiError(400, "Preferred payout method must be bank or upi");
+    }
+
+    const provider = await ServiceProvider.findOne({ user: req.user._id });
+
+    if (!provider) {
+        throw new ApiError(404, "Provider profile not found");
+    }
+
+    provider.payoutDetails = {
+        accountHolderName: normalizedAccountHolderName,
+        accountNumber: normalizedAccountNumber,
+        ifscCode: normalizedIfscCode,
+        bankName: normalizedBankName,
+        upiId: normalizedUpiId,
+        preferredMethod: normalizedPreferredMethod,
+        isVerified: false,
+        updatedAt: new Date(),
+    };
+
+    await provider.save();
+
+    return res.status(200).json(
+        new ApiResponse(200, {
+            payoutDetails: {
+                accountHolderName: provider.payoutDetails.accountHolderName,
+                accountNumber: maskAccountNumber(provider.payoutDetails.accountNumber),
+                ifscCode: provider.payoutDetails.ifscCode,
+                bankName: provider.payoutDetails.bankName,
+                upiId: provider.payoutDetails.upiId,
+                preferredMethod: provider.payoutDetails.preferredMethod,
+                isVerified: provider.payoutDetails.isVerified,
+                updatedAt: provider.payoutDetails.updatedAt,
+            },
+        }, "Payout details updated successfully")
+    );
+});
 
 const becomeProvider = asyncHandler(async (req, res) => {
 
-    const { serviceType, address } = req.body;
+    console.log("BODY: ", req.body);
+    
+
+
+    const traceId = req.headers['x-trace-id'] || null;
+    console.log("[provider.become:start]", {
+        traceId,
+        userId: req.user?._id?.toString?.() || null,
+        serviceType: req.body?.serviceType,
+        address: req.body?.address,
+        pricing: req.body?.pricing,
+        isAvailable: req.body?.isAvailable,
+        hasImage: !!req.file,
+    });
+    
+
+    const { serviceType, address, pricing, isAvailable } = req.body;
+    const providerImageFile = req.file;
+    let uploadedPublicId = "";
 
     // improved validation
     if (!serviceType || serviceType.trim() === "" || !address || address.trim() === "") {
         throw new ApiError(400, "Service type and address are required");
     }
 
+    if (!providerImageFile) {
+        throw new ApiError(400, "Provider image is required");
+    }
+
     const userId = req.user._id;
 
-    // extra safety check
-    const user = await User.findById(userId);
-    if (user.role === "provider") {
-        throw new ApiError(400, "You are already a provider");
+    const { longitude, latitude } = await getCoordinatesFromAddress(address);
+
+    if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) {
+        throw new ApiError(400, "Unable to geocode the provided address");
     }
 
-    const existingProvider = await ServiceProvider.findOne({ user: userId });
+    const session = await mongoose.startSession();
+    try {
+        session.startTransaction();
 
-    if (existingProvider) {
-        throw new ApiError(400, "You are already a provider");
+        // Ensure user exists and isn't already a provider
+        const user = await User.findById(userId).session(session);
+        if (!user) {
+            throw new ApiError(404, "User not found");
+        }
+        if (user.role === "provider") {
+            throw new ApiError(400, "You are already a provider");
+        }
+
+        const existingProvider = await ServiceProvider.findOne({ user: userId }).session(session);
+        if (existingProvider) {
+            throw new ApiError(400, "You are already a provider");
+        }
+
+        const providerId = new mongoose.Types.ObjectId();
+        const uploadResult = await uploadBufferToCloudinary(providerImageFile.buffer, {
+            folder: `servicesetu/providers/${providerId}`,
+            public_id: "profile",
+            resource_type: "image",
+            overwrite: true
+        });
+        uploadedPublicId = uploadResult?.public_id || "";
+
+        const parsedPricing = Number(pricing);
+        const parsedIsAvailable = isAvailable === undefined
+            ? true
+            : String(isAvailable).toLowerCase() === "true";
+
+        const [provider] = await ServiceProvider.create([{
+            _id: providerId,
+            user: userId,
+            serviceType: serviceType.trim(),
+            address: address.trim(),
+            pricing: Number.isFinite(parsedPricing) ? parsedPricing : 0,
+            image: uploadResult?.secure_url || "",
+            isApproved: true,
+            isAvailable: parsedIsAvailable,
+            isActive: true,
+            location: {
+                type: "Point",
+                coordinates: [longitude, latitude]
+            }
+        }], { session });
+
+        await User.findByIdAndUpdate(
+            userId,
+            { role: "provider" },
+            { session }
+        );
+
+        console.log("[provider.become:role-updated]", {
+            traceId,
+            userId: userId.toString(),
+            nextRole: "provider",
+        });
+
+        await session.commitTransaction();
+        console.log("[provider.become:success]", {
+            traceId,
+            providerId: provider._id.toString(),
+            userId: userId.toString(),
+        });
+        return res.status(201).json(
+            new ApiResponse(201, provider, "You are now a provider")
+        );
+    } catch (err) {
+        await session.abortTransaction();
+
+        console.error("[provider.become:error]", {
+            traceId,
+            message: err?.message,
+        });
+
+        if (uploadedPublicId) {
+            try {
+                await deleteCloudinaryAsset(uploadedPublicId);
+            } catch {
+                // Ignore Cloudinary cleanup failures after DB rollback.
+            }
+        }
+
+        throw err;
+    } finally {
+        session.endSession();
     }
-
-    const coords = await getCoordinatesFromAddress(address);
-
-   const provider = await ServiceProvider.create({
-    user: userId,
-    serviceType: serviceType.trim(),
-    address: address.trim(),
-    location: {
-        type: "Point",
-        coordinates: [coords.longitude, coords.latitude]
-    }
-});
-
-    return res.status(201).json(
-        new ApiResponse(201, provider, "You are now a provider")
-    );
 });
 
 const getProviderBookings = asyncHandler(async (req, res) => {
+    const { page = 1, limit = 10 } = req.query;
+
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.max(1, parseInt(limit) || 10);
+    const skip = (pageNum - 1) * limitNum;
+
     const provider = await ServiceProvider.findOne({ user: req.user._id });
 
     if (!provider) {
         throw new ApiError(403, "Unauthorized to view provider bookings");
     }
 
+    const total = await Booking.countDocuments({ provider: provider._id });
+
     const bookings = await Booking.find({ provider: provider._id })
         .populate("user", "fullname email address")
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum);
 
     res.status(200).json(
-        new ApiResponse(200, bookings, "Bookings retrieved successfully")
+        new ApiResponse(200, {
+            data: bookings,
+            pagination: {
+                total,
+                page: pageNum,
+                limit: limitNum,
+                totalPages: Math.ceil(total / limitNum)
+            }
+        }, "Bookings retrieved successfully")
     );
 });
 
@@ -139,5 +351,7 @@ export {
     becomeProvider,
     getProviderBookings,
     updateBookingStatusByProvider,
-    markServiceCompletedByProvider
+    markServiceCompletedByProvider,
+    getPayoutDetails,
+    updatePayoutDetails,
 };

@@ -3,11 +3,20 @@ import { ApiResponse } from '../utils/ApiResponse.js';
 import { ApiError } from '../utils/ApiError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { User } from '../models/user.model.js';
+import jwt from 'jsonwebtoken';
 
 //registering a user
 const registerUser = asyncHandler(async (req, res) => {
 
-    console.log("BODY: ", req.body);
+    const traceId = req.headers['x-trace-id'] || null;
+   
+    console.log("[auth.register]", {
+        traceId,
+        email: req.body?.email,
+        username: req.body?.username,
+        phone: req.body?.phone,
+        address: req.body?.address,
+    });
 
     const {fullname, email, username, password, phone, address } = req.body;
 
@@ -47,12 +56,30 @@ const registerUser = asyncHandler(async (req, res) => {
             throw new ApiError(500, "User creation failed");
         }
 
+        const accessToken = user.generateAccessToken();
+        const refreshToken = user.generateRefreshToken();
+
+        user.refreshToken = refreshToken;
+        await user.save({ validateBeforeSave: false });
+
         return res
             .status(201)
-            .json(new ApiResponse(201, createdUser, "User created successfully"));
+            .json(new ApiResponse(201, {
+                user: {
+                    id: createdUser._id,
+                    email: createdUser.email,
+                    fullname: createdUser.fullname,
+                    role: createdUser.role
+                },
+                accessToken,
+                refreshToken
+            }, "User created and logged in successfully"));
     }
     catch(error) {
-        console.error(error);
+        console.error("[auth.register:error]", {
+            traceId,
+            message: error?.message,
+        });
         
         throw new ApiError(500, "User creation failed");
     }
@@ -92,15 +119,8 @@ const loginUser = asyncHandler(async (req, res) => {
     user.refreshToken = refreshToken;
     await user.save({ validateBeforeSave: false });
 
-    const cookieOptions = {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production"
-    };
-
     return res
         .status(200)
-        .cookie("accessToken", accessToken, cookieOptions)
         .json(
             new ApiResponse(200, {
                 user: {
@@ -109,14 +129,72 @@ const loginUser = asyncHandler(async (req, res) => {
                     fullname: user.fullname,
                     role: user.role
                 },
-                accessToken
+                accessToken,
+                refreshToken
             }, "Login successful")
         );
 });
 
+//logout user
+const logoutUser = asyncHandler(async (req, res) => {
+    const userId = req.user._id;
 
+    // Clear refreshToken in database
+    await User.findByIdAndUpdate(userId, { refreshToken: "" });
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, {}, "Logged out successfully"));
+});
+
+//refresh access token
+const refreshAccessToken = asyncHandler(async (req, res) => {
+    // Get refresh token from cookies or body
+    const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
+
+    if (!refreshToken) {
+        throw new ApiError(401, "Refresh token not provided");
+    }
+
+    // Verify refresh token
+    let decodedToken;
+    try {
+        decodedToken = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+    } catch (error) {
+        throw new ApiError(401, "Invalid or expired refresh token");
+    }
+
+    // Find user
+    const user = await User.findById(decodedToken.id);
+
+    if (!user) {
+        throw new ApiError(404, "User not found");
+    }
+
+    // Verify refresh token matches stored token
+    if (user.refreshToken !== refreshToken) {
+        throw new ApiError(401, "Refresh token mismatch");
+    }
+
+    // Generate new tokens
+    const accessToken = user.generateAccessToken();
+    const newRefreshToken = user.generateRefreshToken();
+
+    // Update user with new refresh token
+    user.refreshToken = newRefreshToken;
+    await user.save({ validateBeforeSave: false });
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, {
+            accessToken,
+            refreshToken: newRefreshToken
+        }, "Access token refreshed successfully"));
+});
 
 export {
     registerUser,
-    loginUser
+    loginUser,
+    logoutUser,
+    refreshAccessToken
 }

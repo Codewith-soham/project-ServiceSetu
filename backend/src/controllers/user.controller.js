@@ -5,6 +5,31 @@ import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import bcrypt from 'bcryptjs';
 import { Booking } from '../models/booking.model.js';
+import { ServiceProvider } from '../models/serviceProvider.model.js';
+import { sendNotification, NOTIFICATION_EVENTS } from '../socket/notification.js';
+
+const emitBookingUpdateToParticipants = async (booking, action) => {
+    if (!booking?._id || !booking?.user || !booking?.provider) {
+        return;
+    }
+
+    const participants = new Set([String(booking.user)]);
+    const providerProfile = await ServiceProvider.findById(booking.provider).select('user').lean();
+    if (providerProfile?.user) {
+        participants.add(String(providerProfile.user));
+    }
+
+    const payload = {
+        bookingId: String(booking._id),
+        status: booking.status,
+        action,
+        updatedAt: new Date().toISOString()
+    };
+
+    for (const userId of participants) {
+        sendNotification(userId, 'Booking updated', NOTIFICATION_EVENTS.BOOKING_UPDATED, payload);
+    }
+};
 
 //user profile
 
@@ -75,6 +100,13 @@ const changeUserPassword = asyncHandler(async (req,res) => {
 });
 
 const getUserBookings = asyncHandler(async (req, res) => {
+    const { page = 1, limit = 10 } = req.query;
+
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.max(1, parseInt(limit) || 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    const total = await Booking.countDocuments({ user: req.user._id });
 
     const bookings = await Booking.find({ user: req.user._id })
         .populate({
@@ -85,10 +117,20 @@ const getUserBookings = asyncHandler(async (req, res) => {
                 select: "fullname address"
             }
         })
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum);
 
     res.status(200).json(
-        new ApiResponse(200, bookings, "Bookings retrieved successfully")
+        new ApiResponse(200, {
+            data: bookings,
+            pagination: {
+                total,
+                page: pageNum,
+                limit: limitNum,
+                totalPages: Math.ceil(total / limitNum)
+            }
+        }, "Bookings retrieved successfully")
     );
 });
 
@@ -110,6 +152,7 @@ const cancelBookingByUser = asyncHandler(async (req, res) => {
 
     booking.status = "cancelled_by_user";
     await booking.save();
+    await emitBookingUpdateToParticipants(booking, 'cancelled_by_user');
 
     res.status(200).json(
         new ApiResponse(200, booking, "Booking cancelled successfully")
@@ -135,6 +178,7 @@ const confirmServiceCompletionByUser = asyncHandler(async (req, res) => {
     booking.status = "completed";
     booking.completedAt = new Date();
     await booking.save();
+    await emitBookingUpdateToParticipants(booking, 'confirmed_completed_by_user');
 
     res.status(200).json(
         new ApiResponse(200, booking, "Booking marked as completed successfully")

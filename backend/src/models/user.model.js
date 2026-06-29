@@ -54,10 +54,12 @@ const userSchema = new mongoose.Schema({
 )
 
 //pre-hooks mongoose middleware
-userSchema.pre('save', async function(next) {
-    if(!this.isModified('password')) return next();  //if password is not modified, move to next middleware
-    this.password = await bcrypt.hash(this.password, 10);  //hash the password with salt rounds of 10
-    return next();
+userSchema.pre('save', async function() {
+    if (!this.isModified('password')) {
+        return;
+    }
+
+    this.password = await bcrypt.hash(this.password, 10);
 })
 
 //check check Password

@@ -1,14 +1,17 @@
 // Main: provider upgrade routes.
 import { Router } from "express";
-import { becomeProvider } from "../controllers/serviceProvider.controller.js";
+import { becomeProvider, getPayoutDetails, updatePayoutDetails } from "../controllers/serviceProvider.controller.js";
 import { authorizeRoles, verifyToken } from "../middlewares/auth.middleware.js";
 import { getNearbyProviders } from "../controllers/publicProviderNearby.js";
+import { providerImageUploadMiddleware } from "../utils/multer.util.js";
 
 const router = Router();
 
 // ---------------- PROVIDER UPGRADE ----------------
 // Only logged-in users can become providers
-router.post("/become", verifyToken, authorizeRoles("user"), becomeProvider);
+router.post("/become", verifyToken, authorizeRoles("user"), providerImageUploadMiddleware, becomeProvider);
 router.get("/nearby", getNearbyProviders);
+router.get("/payout-details", verifyToken, authorizeRoles("provider"), getPayoutDetails);
+router.put("/payout-details", verifyToken, authorizeRoles("provider"), updatePayoutDetails);
 
 export default router;

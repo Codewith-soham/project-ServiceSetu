@@ -11,6 +11,10 @@ const reviewSchema = new mongoose.Schema({
         ref: "ServiceProvider",
         required: true
     },
+    booking: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Booking"
+    },
     rating: {
         type: Number,
         required: true,
@@ -21,5 +25,9 @@ const reviewSchema = new mongoose.Schema({
         type: String, 
     }
 } , { timestamps: true });
+
+// Prevent same user from posting multiple reviews for same provider
+// Prevent multiple reviews per booking by same user
+reviewSchema.index({ booking: 1, user: 1 }, { unique: true, sparse: true });
 
 export const Review = mongoose.model("Review", reviewSchema);
