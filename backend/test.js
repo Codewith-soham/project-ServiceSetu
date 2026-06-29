@@ -1,4 +1,5 @@
 import process from "process";
+import crypto from "crypto";
 
 const BASE_URL = (process.env.API_BASE_URL || "http://localhost:8000/api/v1").replace(/\/$/, "");
 const TEST_RUN_ID = Math.random().toString(36).slice(2, 8);
@@ -42,7 +43,8 @@ function toJsonBody(payload) {
 }
 
 function createPersona(role) {
-  const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const randomSuffix = crypto.randomBytes(4).toString("hex");
+  const stamp = `${Date.now()}-${randomSuffix}`;
   const safeStamp = stamp.replace(/[^a-z0-9-]/gi, "");
 
   return {
